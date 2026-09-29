@@ -2,7 +2,7 @@ mod lyrics;
 mod media;
 mod overlay;
 
-use tauri::{AppHandle, Manager, Runtime, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, Runtime, WindowEvent};
 use tauri_plugin_global_shortcut::{Code, Modifiers, Shortcut, ShortcutState};
 
 const SETTINGS_LABEL: &str = "settings";
@@ -67,6 +67,12 @@ pub fn run() {
                 }
             }
         })
-        .run(tauri::generate_context!())
-        .expect("error while running tauri application");
+        .build(tauri::generate_context!())
+        .expect("error while building tauri application")
+        .run(|app, event| {
+            // Windows still exist at this point, unlike at `RunEvent::Exit`.
+            if let RunEvent::ExitRequested { .. } = event {
+                overlay::save_if_editing(app);
+            }
+        });
 }

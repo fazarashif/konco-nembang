@@ -17,6 +17,8 @@
         "title": "Konco Nembang Overlay",
         "width": 900,
         "height": 170,
+        "minWidth": 320,
+        "minHeight": 90,
         "transparent": true,
         "decorations": false,
         "alwaysOnTop": true,

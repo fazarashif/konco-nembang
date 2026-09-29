@@ -1,9 +1,11 @@
 import { useEffect, useMemo, useState, type ReactNode } from "react";
+import { DEFAULT_AUTO_HIDE } from "../lib/autoHide";
 import { getEditMode, onEditMode, type LyricsPayload, type NowPlaying } from "../lib/ipc";
 import { parseLrc, type LyricLine } from "../lib/lrc";
 import { plainToLines } from "../lib/plainLyrics";
 import { SyncedLyrics } from "./SyncedLyrics";
 import { TrackInfo } from "./TrackInfo";
+import { useAutoHide } from "./useAutoHide";
 import { useLyrics } from "./useLyrics";
 import { useNowPlaying } from "./useNowPlaying";
 
@@ -44,6 +46,17 @@ export function OverlayApp() {
   const durationMs = track?.durationMs ?? 0;
   const lines = useMemo(() => (lyrics ? toLines(lyrics, durationMs) : []), [lyrics, durationMs]);
 
+  const hidden = useAutoHide(
+    {
+      editMode,
+      hasTrack: !!track,
+      playing: anchor?.playing ?? false,
+      lyricsStatus: lyrics?.status ?? null,
+    },
+    DEFAULT_AUTO_HIDE,
+    track ? `${track.sourceApp}\n${track.title}\n${track.artist}` : "",
+  );
+
   let content: ReactNode = null;
   if (track && anchor) {
     content =
@@ -62,8 +75,9 @@ export function OverlayApp() {
   }
 
   const matched = lyrics?.matched;
+  const frameClass = ["frame", editMode && "edit", hidden && "hidden"].filter(Boolean).join(" ");
   return (
-    <div className={editMode ? "frame edit" : "frame"} data-tauri-drag-region>
+    <div className={frameClass} data-tauri-drag-region>
       {editMode && (
         <div className="badge" data-tauri-drag-region>
           MODE EDIT: drag untuk pindah, tarik tepi untuk resize. Ctrl+Alt+L untuk kunci.

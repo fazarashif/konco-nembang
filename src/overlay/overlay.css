@@ -19,7 +19,11 @@ body,
   gap: 4px;
   border: 2px dashed transparent;
   border-radius: 12px;
+  /* Text sizes below scale with the overlay window (cqh/cqw units), so resizing it in
+     edit mode is how the user makes lyrics bigger or smaller. */
+  container-type: size;
   transition:
+    opacity 200ms,
     background-color 150ms,
     border-color 150ms;
 }
@@ -28,6 +32,11 @@ body,
   border-color: rgba(255, 255, 255, 0.7);
   background: rgba(0, 0, 0, 0.35);
   cursor: move;
+}
+
+.frame.hidden {
+  opacity: 0;
+  transition: opacity 600ms;
 }
 
 .badge {
@@ -57,9 +66,6 @@ body,
   max-width: 95%;
   min-height: 1.2em;
   text-align: center;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
   color: #fff;
   /* Outline so the text stays readable on both bright and dark backgrounds. */
   text-shadow:
@@ -69,20 +75,38 @@ body,
     -1px -1px 0 #000;
 }
 
+/* At the default 900x170 window: 34px. Width also caps it so narrow overlays still fit. */
 .active {
-  font-size: 34px;
+  font-size: clamp(14px, min(20cqh, 6cqw), 120px);
   font-weight: 700;
+  line-height: 1.15;
+  /* Long lines wrap onto a second line instead of being cut off. */
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+  text-wrap: balance;
   animation: line-enter 250ms ease-out;
 }
 
+/* At the default window: 18px. Context lines stay on one line. */
 .dim {
-  font-size: 18px;
+  font-size: clamp(10px, min(10.5cqh, 3.2cqw), 64px);
   opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 
 @keyframes line-enter {
   from {
     opacity: 0;
     transform: translateY(8px);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .active {
+    animation: none;
   }
 }
