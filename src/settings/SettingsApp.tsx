@@ -13,6 +13,7 @@ import { useLyrics } from "../lib/useLyrics";
 import { useSettings } from "../lib/useSettings";
 import { LogoMark } from "../ui/LogoMark";
 import { Row, Section, Segmented, ShortcutInput, Slider, Toggle } from "./controls";
+import { UpdatePanel } from "./UpdatePanel";
 
 const percent = (v: number) => `${Math.round(v * 100)}%`;
 const seconds = (ms: number) => `${ms > 0 ? "+" : ""}${(ms / 1000).toFixed(2)} s`;
@@ -267,6 +268,7 @@ export function SettingsApp() {
       </Section>
 
       <Section title="About">
+        <UpdatePanel />
         <p className="about">
           Konco Nembang {version}
           <br />

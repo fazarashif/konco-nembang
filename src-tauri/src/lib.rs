@@ -4,26 +4,57 @@ mod media;
 mod overlay;
 mod settings;
 mod tray;
+mod updates;
 
-use tauri::{AppHandle, Manager, RunEvent, Runtime, WindowEvent};
+use tauri::{AppHandle, Manager, RunEvent, Runtime, WebviewUrl, WebviewWindowBuilder};
 
 const SETTINGS_LABEL: &str = "settings";
 const SEARCH_LABEL: &str = "search";
 
-fn show_window<R: Runtime>(app: &AppHandle<R>, label: &str) {
+/// Tool windows are created on demand and destroyed on close: each open webview costs
+/// tens of MB, and most of the time only the overlay is needed.
+fn show_window<R: Runtime>(
+    app: &AppHandle<R>,
+    label: &str,
+    build: impl FnOnce(WebviewWindowBuilder<'_, R, AppHandle<R>>) -> WebviewWindowBuilder<'_, R, AppHandle<R>>,
+    page: &str,
+) {
     if let Some(window) = app.get_webview_window(label) {
-        let _ = window.show();
         let _ = window.unminimize();
+        let _ = window.show();
         let _ = window.set_focus();
+        return;
+    }
+    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()))
+        .resizable(true)
+        .center();
+    if let Err(err) = build(builder).build() {
+        eprintln!("[window] could not open {label}: {err}");
     }
 }
 
 pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) {
-    show_window(app, SETTINGS_LABEL);
+    show_window(
+        app,
+        SETTINGS_LABEL,
+        |b| b.title("Konco Nembang Settings").inner_size(520.0, 640.0).min_inner_size(440.0, 400.0),
+        "settings.html",
+    );
 }
 
 pub(crate) fn show_search<R: Runtime>(app: &AppHandle<R>) {
-    show_window(app, SEARCH_LABEL);
+    show_window(
+        app,
+        SEARCH_LABEL,
+        |b| {
+            b.title("Konco Nembang Search Lyrics")
+                .inner_size(760.0, 560.0)
+                .min_inner_size(560.0, 400.0)
+                // Let the page receive .lrc files dropped on it as regular DOM drop events.
+                .disable_drag_drop_handler()
+        },
+        "search.html",
+    );
 }
 
 #[tauri::command]
@@ -47,6 +78,8 @@ pub fn run() {
                 .with_handler(hotkeys::handle)
                 .build(),
         )
+        .plugin(tauri_plugin_updater::Builder::new().build())
+        .manage(updates::UpdateState::default())
         .manage(overlay::OverlayState::default())
         .manage(media::MediaState::default())
         .manage(hotkeys::HotkeyState::default())
@@ -64,7 +97,10 @@ pub fn run() {
             settings::get_settings,
             settings::update_settings,
             hotkeys::suspend_hotkeys,
-            hotkeys::resume_hotkeys
+            hotkeys::resume_hotkeys,
+            updates::check_for_update,
+            updates::pending_update,
+            updates::install_update
         ])
         .setup(|app| {
             let handle = app.handle();
@@ -76,16 +112,8 @@ pub fn run() {
             app.manage(lyrics::LyricsState::new(handle));
             tray::init(handle)?;
             media::spawn_watcher(handle.clone());
+            updates::spawn_startup_check(handle.clone());
             Ok(())
-        })
-        .on_window_event(|window, event| {
-            // Closing a tool window only hides it; the app keeps running in the tray.
-            if window.label() == SETTINGS_LABEL || window.label() == SEARCH_LABEL {
-                if let WindowEvent::CloseRequested { api, .. } = event {
-                    api.prevent_close();
-                    let _ = window.hide();
-                }
-            }
         })
         .build(tauri::generate_context!())
         .expect("error while building tauri application")

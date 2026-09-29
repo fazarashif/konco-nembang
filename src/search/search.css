@@ -66,14 +66,6 @@ body,
   outline-offset: 1px;
 }
 
-button.primary,
-button.primary:hover:not(:disabled) {
-  background: var(--accent-fill);
-  border-color: var(--accent-fill);
-  color: var(--accent-fg);
-  font-weight: var(--kn-fw-semibold);
-}
-
 button.link {
   border: none;
   background: none;

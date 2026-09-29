@@ -141,5 +141,21 @@ export const applyManualLyrics = (lyrics: FinalLyrics, matched: MatchInfo | null
 /** Forget pinned/cached lyrics for the current track and look them up again. */
 export const refreshLyrics = () => invoke<void>("refresh_lyrics");
 
+export const EVENT_UPDATE = "update://available";
+
+/** Mirrors `updates::UpdateInfo`. */
+export interface UpdateInfo {
+  version: string;
+  currentVersion: string;
+  notes: string | null;
+}
+
+export const checkForUpdate = () => invoke<UpdateInfo | null>("check_for_update");
+/** An update the startup check already found, if any. */
+export const pendingUpdate = () => invoke<UpdateInfo | null>("pending_update");
+/** Downloads, verifies and installs the update found by the last check; the app restarts. */
+export const installUpdate = () => invoke<void>("install_update");
+export const onUpdateAvailable = (h: (info: UpdateInfo) => void) => subscribe(EVENT_UPDATE, h);
+
 export const suspendHotkeys = () => invoke<void>("suspend_hotkeys");
 export const resumeHotkeys = () => invoke<string[]>("resume_hotkeys");

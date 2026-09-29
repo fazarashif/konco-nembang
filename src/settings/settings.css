@@ -309,3 +309,15 @@ button.reset-override:hover:not(:disabled) {
   padding: 12px 14px;
   color: var(--muted);
 }
+
+.row + .about {
+  border-top: 1px solid var(--border);
+}
+
+button.primary,
+button.primary:hover:not(:disabled) {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
+  color: var(--accent-fg);
+  font-weight: var(--kn-fw-semibold);
+}

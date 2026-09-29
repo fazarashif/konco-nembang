@@ -16,7 +16,8 @@ Dites 2026-09-29 dengan YouTube Music (PWA Chrome) + YouTube di Opera GX.
 - Diverifikasi dengan `GetWindowLongPtr`: TOPMOST, TRANSPARENT, LAYERED, TOOLWINDOW, NOACTIVATE semuanya aktif; overlay tidak menjadi foreground window.
 - Text-shadow outline terbaca di atas latar gelap.
 - Performa (debug build, animasi ganti baris tiap 2,5 detik): CPU **0,13%** (16 core), RAM private **~171 MB** (1 proses app + 6 proses WebView2).
-  Target awal <80 MB tidak realistis dengan WebView2; perlu dicek ulang di release build dan coba kurangi proses WebView2 lewat browser args.
+  Target awal <80 MB tidak realistis dengan WebView2.
+  Release build v0.1.0 (overlay saja, Settings/Search dibuat saat dibuka): ~231 MB private total; app 10 MB, GPU process ~84 MB, browser process ~48 MB, renderer ~35–40 MB per halaman. CPU 0,19%.
 
 ## Tes manual (lolos semua, dikonfirmasi user 2026-09-29)
 - [x] Klik & scroll tembus ke aplikasi di belakang overlay

@@ -1,0 +1,49 @@
+name: Release
+
+# Push a tag that matches the version in src-tauri/tauri.conf.json, e.g. `v0.1.0`.
+# The workflow builds the NSIS installer, signs the update and creates a draft release
+# with latest.json for the in-app updater. Publish the draft to make it live.
+on:
+  push:
+    tags: ["v*"]
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: npm
+
+      - uses: dtolnay/rust-toolchain@stable
+
+      - uses: swatinem/rust-cache@v2
+        with:
+          workspaces: src-tauri
+
+      - run: npm ci
+
+      - run: npm test
+
+      - uses: tauri-apps/tauri-action@v0
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAURI_SIGNING_PRIVATE_KEY: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY }}
+          TAURI_SIGNING_PRIVATE_KEY_PASSWORD: ${{ secrets.TAURI_SIGNING_PRIVATE_KEY_PASSWORD }}
+        with:
+          tagName: ${{ github.ref_name }}
+          releaseName: Konco Nembang ${{ github.ref_name }}
+          releaseBody: |
+            Download `Konco.Nembang_*_x64-setup.exe` below and run it.
+
+            The installer is not code-signed yet, so Windows SmartScreen may warn you.
+            See the [install guide](https://github.com/fazarashif/konco-nembang/blob/main/docs/INSTALL.md) for the steps.
+          releaseDraft: true
+          prerelease: false
+          includeUpdaterJson: true
