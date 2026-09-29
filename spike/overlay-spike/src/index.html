@@ -1,0 +1,19 @@
+<!doctype html>
+<html lang="id">
+  <head>
+    <meta charset="UTF-8" />
+    <link rel="stylesheet" href="styles.css" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Konco Nembang Overlay Spike</title>
+    <script type="module" src="/main.js" defer></script>
+  </head>
+
+  <body>
+    <div id="frame" data-tauri-drag-region>
+      <div id="badge" data-tauri-drag-region>EDIT MODE: drag untuk pindah, tarik tepi untuk resize. Ctrl+Alt+L untuk kunci.</div>
+      <p id="prev" class="line dim" data-tauri-drag-region></p>
+      <p id="current" class="line active" data-tauri-drag-region></p>
+      <p id="next" class="line dim" data-tauri-drag-region></p>
+    </div>
+  </body>
+</html>

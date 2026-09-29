@@ -1,0 +1,84 @@
+html,
+body,
+#root {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+}
+
+.frame {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 4px;
+  border: 2px dashed transparent;
+  border-radius: 12px;
+  transition:
+    background-color 150ms,
+    border-color 150ms;
+}
+
+.frame.edit {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  cursor: move;
+}
+
+.badge {
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+/* Lyrics must not swallow the drag gesture in edit mode. */
+.lyrics {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 2px;
+  width: 100%;
+  pointer-events: none;
+}
+
+.line {
+  margin: 0;
+  max-width: 95%;
+  min-height: 1.2em;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  /* Outline so the text stays readable on both bright and dark backgrounds. */
+  text-shadow:
+    0 0 2px #000,
+    0 0 4px #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000;
+}
+
+.active {
+  font-size: 34px;
+  font-weight: 700;
+  animation: line-enter 250ms ease-out;
+}
+
+.dim {
+  font-size: 18px;
+  opacity: 0.55;
+}
+
+@keyframes line-enter {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+}

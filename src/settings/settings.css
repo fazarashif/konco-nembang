@@ -1,0 +1,53 @@
+:root {
+  --bg: #f6f6f7;
+  --fg: #1d1d1f;
+  --muted: #6b6b70;
+  --kbd-bg: #e4e4e7;
+  color-scheme: light dark;
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1c1c1e;
+    --fg: #f2f2f5;
+    --muted: #a1a1a8;
+    --kbd-bg: #34343a;
+  }
+}
+
+body {
+  margin: 0;
+  background: var(--bg);
+  color: var(--fg);
+  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+}
+
+.settings {
+  padding: 24px;
+}
+
+.settings h1 {
+  margin: 0 0 4px;
+  font-size: 22px;
+}
+
+.settings h2 {
+  margin-top: 24px;
+  font-size: 15px;
+}
+
+.settings p {
+  color: var(--muted);
+}
+
+.settings li {
+  margin: 6px 0;
+}
+
+kbd {
+  background: var(--kbd-bg);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-family: inherit;
+  font-size: 13px;
+}

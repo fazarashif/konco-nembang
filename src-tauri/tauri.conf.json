@@ -1,0 +1,55 @@
+{
+  "$schema": "https://schema.tauri.app/config/2",
+  "productName": "Konco Nembang",
+  "version": "0.1.0",
+  "identifier": "com.konconembang.desktop",
+  "build": {
+    "beforeDevCommand": "npm run dev",
+    "devUrl": "http://localhost:1420",
+    "beforeBuildCommand": "npm run build",
+    "frontendDist": "../dist"
+  },
+  "app": {
+    "windows": [
+      {
+        "label": "overlay",
+        "url": "overlay.html",
+        "title": "Konco Nembang Overlay",
+        "width": 900,
+        "height": 170,
+        "transparent": true,
+        "decorations": false,
+        "alwaysOnTop": true,
+        "skipTaskbar": true,
+        "shadow": false,
+        "focus": false,
+        "resizable": true,
+        "visible": false
+      },
+      {
+        "label": "settings",
+        "url": "settings.html",
+        "title": "Konco Nembang - Pengaturan",
+        "width": 520,
+        "height": 640,
+        "resizable": true,
+        "center": true,
+        "visible": false
+      }
+    ],
+    "security": {
+      "csp": null
+    }
+  },
+  "bundle": {
+    "active": true,
+    "targets": "all",
+    "icon": [
+      "icons/32x32.png",
+      "icons/128x128.png",
+      "icons/128x128@2x.png",
+      "icons/icon.icns",
+      "icons/icon.ico"
+    ]
+  }
+}

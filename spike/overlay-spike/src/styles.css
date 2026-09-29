@@ -1,0 +1,73 @@
+html,
+body {
+  margin: 0;
+  height: 100%;
+  background: transparent;
+  overflow: hidden;
+  user-select: none;
+  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+}
+
+#frame {
+  box-sizing: border-box;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 2px;
+  border: 2px dashed transparent;
+  border-radius: 12px;
+  transition: background-color 150ms, border-color 150ms;
+}
+
+body.edit #frame {
+  border-color: rgba(255, 255, 255, 0.7);
+  background: rgba(0, 0, 0, 0.35);
+  cursor: move;
+}
+
+#badge {
+  display: none;
+  font-size: 12px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.6);
+  padding: 2px 8px;
+  border-radius: 6px;
+}
+
+body.edit #badge {
+  display: block;
+}
+
+.line {
+  margin: 0;
+  max-width: 95%;
+  text-align: center;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  color: #fff;
+  /* Outline so the text stays readable on both bright and dark backgrounds. */
+  text-shadow:
+    0 0 2px #000,
+    0 0 4px #000,
+    1px 1px 0 #000,
+    -1px -1px 0 #000;
+  transition: opacity 250ms, transform 250ms;
+}
+
+.active {
+  font-size: 34px;
+  font-weight: 700;
+}
+
+.dim {
+  font-size: 18px;
+  opacity: 0.55;
+}
+
+.active.enter {
+  opacity: 0;
+  transform: translateY(8px);
+}
