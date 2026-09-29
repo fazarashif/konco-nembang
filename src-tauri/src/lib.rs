@@ -1,3 +1,4 @@
+mod media;
 mod overlay;
 
 use tauri::{AppHandle, Manager, Runtime, WindowEvent};
@@ -44,9 +45,14 @@ pub fn run() {
                 .build(),
         )
         .manage(overlay::OverlayState::default())
-        .invoke_handler(tauri::generate_handler![overlay::get_edit_mode])
+        .manage(media::MediaState::default())
+        .invoke_handler(tauri::generate_handler![
+            overlay::get_edit_mode,
+            media::get_now_playing
+        ])
         .setup(|app| {
             overlay::init(app.handle())?;
+            media::spawn_watcher(app.handle().clone());
             Ok(())
         })
         .on_window_event(|window, event| {
