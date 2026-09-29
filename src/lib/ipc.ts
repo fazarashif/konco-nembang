@@ -1,10 +1,12 @@
 import { invoke } from "@tauri-apps/api/core";
 import { listen, type UnlistenFn } from "@tauri-apps/api/event";
 
-// Keep in sync with src-tauri/src/overlay.rs and src-tauri/src/media/mod.rs.
+// Keep in sync with the Rust side (overlay.rs, media/mod.rs, lyrics/mod.rs, settings.rs).
 export const EVENT_EDIT_MODE = "overlay://edit-mode";
+export const EVENT_TOAST = "overlay://toast";
 export const EVENT_NOW_PLAYING = "media://now-playing";
 export const EVENT_LYRICS = "lyrics://changed";
+export const EVENT_SETTINGS = "settings://changed";
 
 /** Mirrors `media::NowPlaying` in Rust. */
 export interface NowPlaying {
@@ -44,28 +46,67 @@ export type LyricsPayload = Lyrics & {
   title: string;
   artist: string;
   matched: MatchInfo | null;
+  /** Per-track offset; positive shows lyrics earlier. */
+  offsetMs: number;
 };
 
-export function getEditMode(): Promise<boolean> {
-  return invoke<boolean>("get_edit_mode");
+export type Align = "left" | "center" | "right";
+export type MediaSourceFilter = "auto" | "spotify" | "browser";
+
+/** Mirrors `settings::Shortcuts`; accelerator strings such as `Ctrl+Alt+L`, empty = unbound. */
+export interface Shortcuts {
+  toggleEdit: string;
+  toggleVisible: string;
+  openSettings: string;
+  offsetEarlier: string;
+  offsetLater: string;
+  offsetReset: string;
 }
 
-export function onEditMode(handler: (edit: boolean) => void): Promise<UnlistenFn> {
-  return listen<boolean>(EVENT_EDIT_MODE, (event) => handler(event.payload));
+/** Mirrors `settings::Settings`. */
+export interface Settings {
+  visibleLines: 1 | 2 | 3;
+  textScale: number;
+  align: Align;
+  textOpacity: number;
+  backgroundOpacity: number;
+  activeColor: string;
+  animations: boolean;
+  hidePausedAfterMs: number | null;
+  hideNoLyricsAfterMs: number | null;
+  mediaSource: MediaSourceFilter;
+  globalOffsetMs: number;
+  offsetStepMs: number;
+  shortcuts: Shortcuts;
+  autostart: boolean;
 }
 
-export function getNowPlaying(): Promise<NowPlaying | null> {
-  return invoke<NowPlaying | null>("get_now_playing");
+export interface UpdateResult {
+  settings: Settings;
+  warnings: string[];
 }
 
-export function onNowPlaying(handler: (np: NowPlaying | null) => void): Promise<UnlistenFn> {
-  return listen<NowPlaying | null>(EVENT_NOW_PLAYING, (event) => handler(event.payload));
+function subscribe<T>(event: string, handler: (payload: T) => void): Promise<UnlistenFn> {
+  return listen<T>(event, (e) => handler(e.payload));
 }
 
-export function getLyrics(): Promise<LyricsPayload | null> {
-  return invoke<LyricsPayload | null>("get_lyrics");
-}
+export const getEditMode = () => invoke<boolean>("get_edit_mode");
+export const onEditMode = (h: (edit: boolean) => void) => subscribe(EVENT_EDIT_MODE, h);
+export const onToast = (h: (message: string) => void) => subscribe(EVENT_TOAST, h);
+export const resetOverlayPosition = () => invoke<void>("reset_overlay_position");
 
-export function onLyrics(handler: (lyrics: LyricsPayload | null) => void): Promise<UnlistenFn> {
-  return listen<LyricsPayload | null>(EVENT_LYRICS, (event) => handler(event.payload));
-}
+export const getNowPlaying = () => invoke<NowPlaying | null>("get_now_playing");
+export const onNowPlaying = (h: (np: NowPlaying | null) => void) => subscribe(EVENT_NOW_PLAYING, h);
+
+export const getLyrics = () => invoke<LyricsPayload | null>("get_lyrics");
+export const onLyrics = (h: (lyrics: LyricsPayload | null) => void) => subscribe(EVENT_LYRICS, h);
+/** Nudge the current track's offset; null resets it. */
+export const adjustTrackOffset = (deltaMs: number | null) => invoke<void>("adjust_track_offset", { deltaMs });
+
+export const getSettings = () => invoke<Settings>("get_settings");
+/** Rejects with a message when a shortcut is invalid or assigned twice. */
+export const updateSettings = (settings: Settings) => invoke<UpdateResult>("update_settings", { settings });
+export const onSettings = (h: (settings: Settings) => void) => subscribe(EVENT_SETTINGS, h);
+
+export const suspendHotkeys = () => invoke<void>("suspend_hotkeys");
+export const resumeHotkeys = () => invoke<string[]>("resume_hotkeys");

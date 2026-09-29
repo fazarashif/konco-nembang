@@ -7,7 +7,7 @@ Konco Nembang (bahasa Jawa: "teman bernyanyi") adalah aplikasi desktop Windows 1
 
 Prinsip utama: **terbaca dalam sekilas, tapi tidak mengganggu.** Overlay adalah tamu di layar pengguna. Tidak boleh mencuri perhatian, tidak boleh ramai, dan tidak boleh menutupi UI game lebih dari yang perlu.
 
-Target pengguna: orang Indonesia yang suka musik (termasuk lagu Jawa/dangdut/pop Indonesia), bekerja di depan komputer, atau gamer PC. Bahasa UI utama Bahasa Indonesia, dengan dukungan Bahasa Inggris.
+Target pengguna: orang Indonesia yang suka musik (termasuk lagu Jawa/dangdut/pop Indonesia), bekerja di depan komputer, atau gamer PC. **Semua teks UI dalam bahasa Inggris** (label, status, menu, toast, pengaturan); hanya lirik yang tampil apa adanya.
 
 ## Batasan teknis (wajib diikuti)
 - Stack: Tauri 2 + React + TypeScript, styling dengan **CSS biasa** (tanpa Tailwind/UI library berat). Render di WebView2 (Chromium).
@@ -31,32 +31,37 @@ Desain semua state berikut, masing-masing ditampilkan di atas **4 jenis latar**:
 - **Intro** (sebelum lirik pertama mulai): menampilkan judul lagu.
 - **Jeda instrumental** di tengah lagu (sekarang ditandai "♪").
 - **Lirik tidak tersinkron (perkiraan)**: perlu penanda halus bahwa waktunya hanya perkiraan.
-- **Status tanpa lirik**: judul + artis + posisi (▶ 1:23 / 4:57) ditambah catatan: "Mencari lirik…", "Lirik tidak ditemukan", "♪ Instrumental", "Gagal memuat lirik".
-- **Lagu di-pause**: apakah overlay meredup, menampilkan ikon pause, atau disembunyikan?
-- **Baris sangat panjang**: wrap ke 2 baris atau diperkecil? Tentukan aturannya.
-- **Mode Edit** (pengguna menekan Ctrl+Alt+L untuk memindah/resize): border, handle resize, dan badge info kecil berisi instruksi serta sumber lirik ("LRCLIB: Judul — Artis").
-- **Tidak ada lagu**: overlay tidak terlihat sama sekali, kecuali di Mode Edit.
-- Alignment kiri / tengah / kanan.
+- **Status tanpa lirik**: judul + artis + posisi (▶ 1:23 / 4:57) ditambah catatan: "Searching for lyrics…", "No lyrics found", "♪ Instrumental", "Couldn't load lyrics".
+- **Lagu di-pause**: saat ini overlay memudar setelah 3 detik (bisa diatur). Usulkan transisinya, dan apakah perlu indikator pause sebelum memudar.
+- **Baris sangat panjang**: saat ini baris aktif dibungkus maksimal 2 baris, baris konteks dipotong "…". Rapikan aturannya.
+- **Mode Edit** (pengguna menekan Ctrl+Alt+L untuk memindah/resize): border, handle resize, dan badge info kecil berisi instruksi serta sumber lirik ("LRCLIB: Title — Artist").
+- **Tidak ada lagu**: overlay tidak terlihat sama sekali, kecuali di Mode Edit ("Nothing is playing").
+- Alignment kiri / tengah / kanan, dan opsi latar gelap semi-transparan di belakang lirik (opacity 0–90%).
+- Ukuran teks mengikuti ukuran window overlay (diskalakan terhadap tinggi 170px), dikali pengaturan "Text size" 50–250%.
 
 **Preset gaya** (3–5 buah) yang bisa dipilih pengguna, misalnya: *Minimal* (teks saja + outline), *Pill* (latar kapsul semi-transparan), *Karaoke* (baris aktif diberi warna aksen), dan *Subtle* (kecil, opacity rendah untuk kerja). Setiap preset harus terdefinisi lewat token yang sama supaya bisa diubah dari Pengaturan.
 
-### 2. Window Pengaturan (520×640 px, bisa di-resize)
-Mode terang dan gelap. Berisi **live preview overlay** kecil di bagian atas yang langsung berubah saat pengaturan diubah. Bagian-bagiannya:
-- **Tampilan**: preset gaya, font, ukuran teks, warna baris aktif & tidak aktif, opacity teks, opacity latar, outline/shadow, jumlah baris (1/2/3), alignment, animasi on/off.
-- **Perilaku**: sembunyikan otomatis saat pause / saat tidak ada lirik, sumber media (Otomatis / Spotify saja / Browser saja).
-- **Sinkronisasi**: offset global (slider ± detik), info offset lagu saat ini + tombol reset.
-- **Shortcut**: daftar hotkey yang bisa diubah (klik lalu tekan kombinasi baru): Kunci/Edit overlay, Tampilkan/Sembunyikan, Offset +/-, Buka Pengaturan.
-- **Umum**: jalankan saat Windows start, bahasa (Indonesia/English), cek pembaruan.
-- **Tentang**: versi, atribusi LRCLIB, catatan privasi singkat ("hanya judul & artis yang dikirim ke LRCLIB").
+### 2. Window Settings (520×640 px, bisa di-resize)
+Mode terang dan gelap. Versi fungsionalnya **sudah jadi** (tampilan sederhana), jadi desain ulang struktur yang ada ini dan tambahkan **live preview overlay** kecil di bagian atas. Semua label dalam bahasa Inggris:
+- **Appearance**: Lines shown (1/2/3), Text size (50–250%), Alignment (Left/Center/Right), Text opacity, Background (Off–90%), Active line color, Animations on/off. Tambahkan pemilih **preset gaya** dan font.
+- **Behavior**: Hide when paused (off / 1–30 s), Hide when no lyrics (off / 1–30 s), Follow music from (Any app / Spotify / Browsers).
+- **Sync**: Global offset (slider ±5 s), Hotkey step (0.1 / 0.25 / 0.5 s), This track (judul lagu + tombol Later / Earlier / Reset + nilai offset).
+- **Shortcuts**: 6 hotkey yang bisa direkam ulang (klik lalu tekan kombinasi; Esc batal, Backspace hapus): Move / resize overlay, Show / hide overlay, Open settings, Show lyrics earlier, Show lyrics later, Reset track offset. Sertakan state "recording" dan pesan error untuk shortcut bentrok.
+- **General**: Start with Windows, Overlay position (Reset).
+- **About**: versi, atribusi LRCLIB, catatan privasi ("Only the title, artist, album and duration of the playing track are sent to LRCLIB.").
+- Banner peringatan/error di atas (mis. shortcut sudah dipakai aplikasi lain).
 
 ### 3. Dialog Cari Lirik Manual
-Dipakai saat lirik salah atau tidak ditemukan. Isinya: kolom pencarian (terisi otomatis dengan judul & artis yang terdeteksi), daftar hasil (judul, artis, album, durasi + selisih durasi dengan lagu yang diputar, badge "Tersinkron"/"Teks saja"), panel preview lirik, tombol "Pakai lirik ini", dan area **drag & drop file .lrc** untuk import lirik sendiri. Sertakan state kosong, loading, dan error.
+Dipakai saat lirik salah atau tidak ditemukan. Isinya: kolom pencarian (terisi otomatis dengan judul & artis yang terdeteksi), daftar hasil (judul, artis, album, durasi + selisih durasi dengan lagu yang diputar, badge "Synced"/"Text only"), panel preview lirik, tombol "Use these lyrics", dan area **drag & drop file .lrc** untuk import lirik sendiri. Sertakan state kosong, loading, dan error.
 
 ### 4. Toast / OSD hotkey
-Notifikasi kecil yang muncul sekitar 1,2 detik di dekat overlay saat hotkey ditekan, misalnya "Overlay dikunci", "Mode edit", "Offset +0,25 dtk (lagu ini)". Harus konsisten dengan gaya overlay dan tidak mengganggu.
+Sudah ada versi sederhana: kapsul gelap di tengah atas overlay selama 1,6 detik, misalnya "Lyrics 0.25 s earlier for this track", "Lyrics offset reset for this track", "No track playing". Rapikan agar konsisten dengan gaya overlay dan tidak mengganggu.
+
+### 4b. Menu tray
+Menu native Windows (hanya teks): Show / hide overlay, Move / resize overlay, Settings…, Quit Konco Nembang. Klik kiri ikon tray membuka Settings. Tooltip menampilkan lagu yang sedang diputar.
 
 ### 5. Onboarding (pertama kali dibuka)
-1–3 layar singkat: cara kerja (putar lagu → lirik muncul), daftar hotkey penting, dan tips "gunakan mode borderless/windowed di game, karena exclusive fullscreen tidak didukung".
+1–3 layar singkat (bahasa Inggris): cara kerja (putar lagu → lirik muncul), daftar hotkey penting, dan tips bahwa game harus memakai mode borderless/windowed karena exclusive fullscreen tidak didukung.
 
 ### 6. Branding & ikon
 - Logo/ikon aplikasi yang mencerminkan "teman bernyanyi" (boleh ada sentuhan lokal Jawa/Indonesia, tapi tetap modern dan sederhana).

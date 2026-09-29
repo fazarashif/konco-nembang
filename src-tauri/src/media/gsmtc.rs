@@ -8,7 +8,8 @@ use windows::Media::Control::{
 };
 use windows::Win32::System::WinRT::{RoInitialize, RO_INIT_MULTITHREADED};
 
-use super::{pick_session, MediaSource, NowPlaying, SessionCandidate};
+use super::{pick_session, source_allowed, MediaSource, NowPlaying, SessionCandidate};
+use crate::settings::MediaSourceFilter;
 
 /// 100 ns ticks between 1601-01-01 (Windows epoch) and 1970-01-01 (Unix epoch).
 const UNIX_EPOCH_TICKS: i64 = 116_444_736_000_000_000;
@@ -74,7 +75,11 @@ impl GsmtcSource {
 }
 
 impl MediaSource for GsmtcSource {
-    fn snapshot(&mut self, previous_app: Option<&str>) -> Result<Option<NowPlaying>, String> {
+    fn snapshot(
+        &mut self,
+        previous_app: Option<&str>,
+        filter: MediaSourceFilter,
+    ) -> Result<Option<NowPlaying>, String> {
         let sessions = self.manager.GetSessions().map_err(err)?;
         let count = sessions.Size().map_err(err)?;
 
@@ -86,6 +91,9 @@ impl MediaSource for GsmtcSource {
             let Ok(app) = session.SourceAppUserModelId() else {
                 continue;
             };
+            if !source_allowed(filter, &app.to_string()) {
+                continue;
+            }
             let playing = session
                 .GetPlaybackInfo()
                 .and_then(|p| p.PlaybackStatus())

@@ -9,15 +9,21 @@ const MIN_WAIT_MS = 16;
 /**
  * Index of the line being sung. Wakes up only at line boundaries (no per-frame polling),
  * so the overlay costs next to nothing while a game is running.
+ *
+ * `offsetMs` shifts the lyrics: positive shows each line earlier.
  */
-export function useActiveLine(lines: readonly LyricLine[], anchor: PlaybackAnchor): number {
+export function useActiveLine(
+  lines: readonly LyricLine[],
+  anchor: PlaybackAnchor,
+  offsetMs = 0,
+): number {
   const [index, setIndex] = useState(-1);
 
   useEffect(() => {
     let timer: number | undefined;
 
     const tick = () => {
-      const position = positionAt(anchor, performance.now());
+      const position = positionAt(anchor, performance.now()) + offsetMs;
       const current = activeLineIndex(lines, position);
       setIndex(current);
       if (!anchor.playing) return;
@@ -30,7 +36,7 @@ export function useActiveLine(lines: readonly LyricLine[], anchor: PlaybackAncho
 
     tick();
     return () => window.clearTimeout(timer);
-  }, [lines, anchor]);
+  }, [lines, anchor, offsetMs]);
 
   return index;
 }

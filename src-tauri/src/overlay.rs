@@ -7,11 +7,16 @@ use std::sync::atomic::{AtomicBool, Ordering};
 
 use serde::{Deserialize, Serialize};
 use tauri::{
-    AppHandle, Emitter, Manager, PhysicalPosition, PhysicalSize, Runtime, State, WebviewWindow,
+    AppHandle, Emitter, LogicalSize, Manager, PhysicalPosition, PhysicalSize, Runtime, State,
+    WebviewWindow,
 };
 
 pub const OVERLAY_LABEL: &str = "overlay";
 pub const EVENT_EDIT_MODE: &str = "overlay://edit-mode";
+pub const EVENT_TOAST: &str = "overlay://toast";
+
+/// Matches the overlay size in tauri.conf.json.
+const DEFAULT_SIZE: LogicalSize<f64> = LogicalSize::new(900.0, 170.0);
 
 /// How much of a saved overlay must still land on a monitor to reuse the saved spot.
 const MIN_VISIBLE_WIDTH: i64 = 120;
@@ -203,10 +208,27 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     Ok(())
 }
 
+/// Short feedback message shown on the overlay (e.g. after an offset hotkey).
+pub fn toast<R: Runtime>(app: &AppHandle<R>, message: &str) {
+    let _ = app.emit_to(OVERLAY_LABEL, EVENT_TOAST, message);
+}
+
 /// Lets the overlay page read the current mode on load, since it may miss the first event.
 #[tauri::command]
 pub fn get_edit_mode(state: State<'_, OverlayState>) -> bool {
     state.edit_mode.load(Ordering::SeqCst)
+}
+
+/// Forget the saved placement and put the overlay back at the default size and spot.
+#[tauri::command]
+pub fn reset_overlay_position<R: Runtime>(app: AppHandle<R>) {
+    if let Some(path) = geometry_path(&app) {
+        let _ = fs::remove_file(path);
+    }
+    if let Some(window) = overlay_window(&app) {
+        let _ = window.set_size(DEFAULT_SIZE);
+        place_bottom_center(&window);
+    }
 }
 
 #[cfg(test)]

@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { getLyrics, onLyrics, type LyricsPayload } from "../lib/ipc";
+import { getLyrics, onLyrics, type LyricsPayload } from "./ipc";
 
 export function useLyrics(): LyricsPayload | null {
   const [lyrics, setLyrics] = useState<LyricsPayload | null>(null);

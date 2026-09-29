@@ -4,12 +4,16 @@
 #[cfg(windows)]
 mod gsmtc;
 
+use std::sync::atomic::{AtomicU8, Ordering};
 use std::sync::Mutex;
 use std::thread;
 use std::time::{Duration, Instant};
 
 use serde::Serialize;
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
+
+use crate::settings::MediaSourceFilter;
+use crate::tray;
 
 pub const EVENT_NOW_PLAYING: &str = "media://now-playing";
 
@@ -81,15 +85,53 @@ pub fn pick_session(
         .or(if candidates.is_empty() { None } else { Some(0) })
 }
 
+/// Whether the user's source setting lets us follow the player with this app id.
+pub fn source_allowed(filter: MediaSourceFilter, app_id: &str) -> bool {
+    let is_spotify = app_id.to_ascii_lowercase().contains("spotify");
+    match filter {
+        MediaSourceFilter::Auto => true,
+        MediaSourceFilter::Spotify => is_spotify,
+        // Everything else reporting to the OS is a browser tab or installed web app.
+        MediaSourceFilter::Browser => !is_spotify,
+    }
+}
+
 /// Platform-specific source of now-playing snapshots.
 pub trait MediaSource {
     /// `previous_app` is the session followed on the last call, for sticky selection.
-    fn snapshot(&mut self, previous_app: Option<&str>) -> Result<Option<NowPlaying>, String>;
+    fn snapshot(
+        &mut self,
+        previous_app: Option<&str>,
+        filter: MediaSourceFilter,
+    ) -> Result<Option<NowPlaying>, String>;
 }
 
 #[derive(Default)]
 pub struct MediaState {
     now_playing: Mutex<Option<NowPlaying>>,
+    filter: AtomicU8,
+}
+
+fn filter_to_u8(f: MediaSourceFilter) -> u8 {
+    match f {
+        MediaSourceFilter::Auto => 0,
+        MediaSourceFilter::Spotify => 1,
+        MediaSourceFilter::Browser => 2,
+    }
+}
+
+fn filter_from_u8(v: u8) -> MediaSourceFilter {
+    match v {
+        1 => MediaSourceFilter::Spotify,
+        2 => MediaSourceFilter::Browser,
+        _ => MediaSourceFilter::Auto,
+    }
+}
+
+pub fn set_source_filter<R: Runtime>(app: &AppHandle<R>, filter: MediaSourceFilter) {
+    app.state::<MediaState>()
+        .filter
+        .store(filter_to_u8(filter), Ordering::SeqCst);
 }
 
 #[tauri::command]
@@ -138,6 +180,11 @@ fn publish<R: Runtime>(app: &AppHandle<R>, previous: &Option<NowPlaying>, snapsh
     };
     if track_changed {
         crate::lyrics::on_track_changed(app, snapshot.as_ref());
+        let tip = tray::tooltip_for(
+            snapshot.as_ref().map(|np| np.title.as_str()),
+            snapshot.as_ref().map(|np| np.artist.as_str()),
+        );
+        tray::set_tooltip(app, &tip);
     }
 }
 
@@ -162,7 +209,8 @@ pub fn spawn_watcher<R: Runtime>(app: AppHandle<R>) {
 
                 loop {
                     let previous_app = last.as_ref().map(|np| np.source_app.clone());
-                    match source.snapshot(previous_app.as_deref()) {
+                    let filter = filter_from_u8(app.state::<MediaState>().filter.load(Ordering::SeqCst));
+                    match source.snapshot(previous_app.as_deref(), filter) {
                         Ok(snapshot) => {
                             let within_grace = if snapshot.is_none() && last.is_some() {
                                 missing_since.get_or_insert_with(Instant::now).elapsed()
@@ -198,6 +246,21 @@ mod tests {
         SessionCandidate {
             app: app.into(),
             playing,
+        }
+    }
+
+    #[test]
+    fn source_filter() {
+        let spotify = "Spotify.exe";
+        let ytm = "Chrome._crx_cinhimbnkkghhklpknlkffjgod";
+        assert!(source_allowed(MediaSourceFilter::Auto, spotify));
+        assert!(source_allowed(MediaSourceFilter::Auto, ytm));
+        assert!(source_allowed(MediaSourceFilter::Spotify, spotify));
+        assert!(!source_allowed(MediaSourceFilter::Spotify, ytm));
+        assert!(!source_allowed(MediaSourceFilter::Browser, spotify));
+        assert!(source_allowed(MediaSourceFilter::Browser, ytm));
+        for f in [MediaSourceFilter::Auto, MediaSourceFilter::Spotify, MediaSourceFilter::Browser] {
+            assert_eq!(filter_from_u8(filter_to_u8(f)), f);
         }
     }
 

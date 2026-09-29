@@ -6,7 +6,7 @@ import { positionAt, type PlaybackAnchor } from "../lib/syncClock";
 interface TrackInfoProps {
   track: NowPlaying;
   anchor: PlaybackAnchor;
-  /** Status line such as "Mencari lirik…". */
+  /** Status line such as "Searching for lyrics…". */
   note?: string;
 }
 
@@ -32,7 +32,7 @@ export function TrackInfo({ track, anchor, note }: TrackInfoProps) {
   return (
     <div className="lyrics">
       <p key={track.title} className="line active">
-        {track.title || "(tanpa judul)"}
+        {track.title || "(untitled)"}
       </p>
       <p className="line dim">
         {[track.artist, `${status} ${time}`].filter(Boolean).join("  ·  ")}

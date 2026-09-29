@@ -5,6 +5,7 @@
 mod cache;
 mod lrclib;
 mod normalize;
+mod offsets;
 
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
@@ -13,8 +14,11 @@ use serde::{Deserialize, Serialize};
 use tauri::{AppHandle, Emitter, Manager, Runtime, State};
 
 use crate::media::NowPlaying;
+use crate::overlay;
+use crate::settings::MAX_OFFSET_MS;
 use cache::Cache;
 use normalize::TrackQuery;
+use offsets::OffsetStore;
 
 pub const EVENT_LYRICS: &str = "lyrics://changed";
 
@@ -52,17 +56,22 @@ pub struct LyricsPayload {
     #[serde(flatten)]
     pub lyrics: Lyrics,
     pub matched: Option<MatchInfo>,
+    /// Per-track sync offset; positive shows lyrics earlier. Added to the global offset.
+    pub offset_ms: i32,
 }
 
 struct Inner {
     generation: u64,
     current: Option<LyricsPayload>,
+    /// Offset/cache key of the current track.
+    current_key: Option<String>,
 }
 
 pub struct LyricsState {
     inner: Mutex<Inner>,
     client: Option<Arc<lrclib::Client>>,
     cache: Option<Arc<Cache>>,
+    offsets: OffsetStore,
 }
 
 impl LyricsState {
@@ -71,19 +80,20 @@ impl LyricsState {
             .map_err(|e| eprintln!("[lyrics] http client unavailable: {e}"))
             .ok()
             .map(Arc::new);
-        let cache = app
+        let data_dir = app
             .path()
             .app_data_dir()
-            .map(|dir| Arc::new(Cache::new(dir.join("lyrics"))))
-            .map_err(|e| eprintln!("[lyrics] no app data dir, cache disabled: {e}"))
+            .map_err(|e| eprintln!("[lyrics] no app data dir, cache and offsets disabled: {e}"))
             .ok();
         Self {
             inner: Mutex::new(Inner {
                 generation: 0,
                 current: None,
+                current_key: None,
             }),
             client,
-            cache,
+            cache: data_dir.as_ref().map(|dir| Arc::new(Cache::new(dir.join("lyrics")))),
+            offsets: OffsetStore::load(data_dir.map(|dir| dir.join("offsets.json"))),
         }
     }
 }
@@ -160,22 +170,28 @@ fn publish<R: Runtime>(app: &AppHandle<R>, generation: u64, payload: Option<Lyri
 /// Call when the track identity changes (not on play/pause/seek).
 pub fn on_track_changed<R: Runtime>(app: &AppHandle<R>, track: Option<&NowPlaying>) {
     let state = app.state::<LyricsState>();
+    let query = track.map(|t| normalize::build_query(&t.title, &t.artist, &t.album, t.duration_ms));
+    let key = query.as_ref().map(cache::cache_key);
     let generation = {
         let mut inner = state.inner.lock().unwrap();
         inner.generation += 1;
+        inner.current_key = key.clone();
         inner.generation
     };
 
-    let Some(track) = track else {
+    let (Some(track), Some(query), Some(key)) = (track, query, key) else {
         publish(app, generation, None);
         return;
     };
 
-    let payload = |lyrics: Lyrics, matched: Option<MatchInfo>| LyricsPayload {
-        title: track.title.clone(),
-        artist: track.artist.clone(),
+    let offset_ms = state.offsets.get(&key);
+    let (title, artist) = (track.title.clone(), track.artist.clone());
+    let payload = move |lyrics: Lyrics, matched: Option<MatchInfo>| LyricsPayload {
+        title: title.clone(),
+        artist: artist.clone(),
         lyrics,
         matched,
+        offset_ms,
     };
     publish(app, generation, Some(payload(Lyrics::Loading, None)));
 
@@ -185,8 +201,6 @@ pub fn on_track_changed<R: Runtime>(app: &AppHandle<R>, track: Option<&NowPlayin
         return;
     };
     let cache = state.cache.clone();
-    let query = normalize::build_query(&track.title, &track.artist, &track.album, track.duration_ms);
-    let (title, artist) = (track.title.clone(), track.artist.clone());
     let app = app.clone();
 
     tauri::async_runtime::spawn(async move {
@@ -204,17 +218,63 @@ pub fn on_track_changed<R: Runtime>(app: &AppHandle<R>, track: Option<&NowPlayin
                 Lyrics::Error { .. } => "error",
                 Lyrics::Loading => "loading",
             };
-            eprintln!("[lyrics] {query:?} -> {status} {matched:?}");
+            eprintln!("[lyrics] {query:?} -> {status} {matched:?} offset={offset_ms}ms");
         }
-        publish(
-            &app,
-            generation,
-            Some(LyricsPayload {
-                title,
-                artist,
-                lyrics,
-                matched,
-            }),
-        );
+        // Keep an offset the user adjusted while the lookup was running.
+        let mut answer = payload(lyrics, matched);
+        answer.offset_ms = app.state::<LyricsState>().offsets.get(&key);
+        publish(&app, generation, Some(answer));
     });
+}
+
+/// Settings window counterpart of the offset hotkeys.
+#[tauri::command]
+pub fn adjust_track_offset<R: Runtime>(app: AppHandle<R>, delta_ms: Option<i32>) {
+    adjust_offset(&app, delta_ms);
+}
+
+/// Nudge the current track's offset by `delta_ms`, or reset it with `None`.
+pub fn adjust_offset<R: Runtime>(app: &AppHandle<R>, delta_ms: Option<i32>) {
+    let state = app.state::<LyricsState>();
+    let mut inner = state.inner.lock().unwrap();
+    let Some(key) = inner.current_key.clone() else {
+        drop(inner);
+        overlay::toast(app, "No track playing");
+        return;
+    };
+
+    let offset_ms = match delta_ms {
+        Some(delta) => (state.offsets.get(&key) + delta).clamp(-MAX_OFFSET_MS, MAX_OFFSET_MS),
+        None => 0,
+    };
+    state.offsets.set(&key, offset_ms);
+    if let Some(current) = inner.current.as_mut() {
+        current.offset_ms = offset_ms;
+    }
+    let payload = inner.current.clone();
+    drop(inner);
+
+    let _ = app.emit(EVENT_LYRICS, payload);
+    overlay::toast(app, &offset_toast(offset_ms));
+}
+
+fn offset_toast(offset_ms: i32) -> String {
+    if offset_ms == 0 {
+        return "Lyrics offset reset for this track".into();
+    }
+    let secs = offset_ms.unsigned_abs() as f64 / 1000.0;
+    let direction = if offset_ms > 0 { "earlier" } else { "later" };
+    format!("Lyrics {secs:.2} s {direction} for this track")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn offset_toast_wording() {
+        assert_eq!(offset_toast(0), "Lyrics offset reset for this track");
+        assert_eq!(offset_toast(250), "Lyrics 0.25 s earlier for this track");
+        assert_eq!(offset_toast(-1500), "Lyrics 1.50 s later for this track");
+    }
 }

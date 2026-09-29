@@ -9,14 +9,16 @@ body,
   font-family: "Segoe UI", Inter, system-ui, sans-serif;
 }
 
+/* Appearance settings arrive as --kn-* custom properties set on .frame (OverlayApp). */
 .frame {
   box-sizing: border-box;
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: var(--kn-align, center);
   justify-content: center;
   gap: 4px;
+  padding: 0 8px;
   border: 2px dashed transparent;
   border-radius: 12px;
   /* Text sizes below scale with the overlay window (cqh/cqw units), so resizing it in
@@ -40,6 +42,7 @@ body,
 }
 
 .badge {
+  align-self: center;
   max-width: 95%;
   white-space: nowrap;
   overflow: hidden;
@@ -53,19 +56,29 @@ body,
 
 /* Lyrics must not swallow the drag gesture in edit mode. */
 .lyrics {
+  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: var(--kn-align, center);
   gap: 2px;
   width: 100%;
   pointer-events: none;
 }
 
+/* Optional dark pill behind the lyrics for busy backgrounds. */
+.frame.with-bg .lyrics {
+  width: auto;
+  max-width: 100%;
+  padding: 0.35em 1em;
+  border-radius: 14px;
+  background: rgba(8, 8, 12, var(--kn-bg-opacity, 0));
+}
+
 .line {
   margin: 0;
-  max-width: 95%;
+  max-width: 100%;
   min-height: 1.2em;
-  text-align: center;
+  text-align: var(--kn-text-align, center);
   color: #fff;
   /* Outline so the text stays readable on both bright and dark backgrounds. */
   text-shadow:
@@ -75,11 +88,14 @@ body,
     -1px -1px 0 #000;
 }
 
-/* At the default 900x170 window: 34px. Width also caps it so narrow overlays still fit. */
+/* At the default 900x170 window and 100% scale: 34px. Width also caps it so narrow
+   overlays still fit. */
 .active {
-  font-size: clamp(14px, min(20cqh, 6cqw), 120px);
+  font-size: calc(clamp(14px, min(20cqh, 6cqw), 120px) * var(--kn-scale, 1));
   font-weight: 700;
   line-height: 1.15;
+  color: var(--kn-active-color, #fff);
+  opacity: var(--kn-text-opacity, 1);
   /* Long lines wrap onto a second line instead of being cut off. */
   display: -webkit-box;
   -webkit-box-orient: vertical;
@@ -91,8 +107,8 @@ body,
 
 /* At the default window: 18px. Context lines stay on one line. */
 .dim {
-  font-size: clamp(10px, min(10.5cqh, 3.2cqw), 64px);
-  opacity: 0.55;
+  font-size: calc(clamp(10px, min(10.5cqh, 3.2cqw), 64px) * var(--kn-scale, 1));
+  opacity: calc(0.55 * var(--kn-text-opacity, 1));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -105,8 +121,43 @@ body,
   }
 }
 
+.toast {
+  position: fixed;
+  top: 6px;
+  left: 50%;
+  transform: translateX(-50%);
+  max-width: 90%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.75);
+  padding: 3px 12px;
+  border-radius: 999px;
+  pointer-events: none;
+  animation: toast-in 150ms ease-out;
+}
+
+@keyframes toast-in {
+  from {
+    opacity: 0;
+  }
+}
+
+.no-anim .active,
+.no-anim ~ .toast {
+  animation: none;
+}
+
+.no-anim,
+.no-anim.hidden {
+  transition: none;
+}
+
 @media (prefers-reduced-motion: reduce) {
-  .active {
+  .active,
+  .toast {
     animation: none;
   }
 }
