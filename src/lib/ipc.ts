@@ -51,6 +51,7 @@ export type LyricsPayload = Lyrics & {
 };
 
 export type Align = "left" | "center" | "right";
+export type Preset = "minimal" | "pill" | "karaoke" | "subtle";
 export type MediaSourceFilter = "auto" | "spotify" | "browser";
 
 /** Mirrors `settings::Shortcuts`; accelerator strings such as `Ctrl+Alt+L`, empty = unbound. */
@@ -65,12 +66,15 @@ export interface Shortcuts {
 
 /** Mirrors `settings::Settings`. */
 export interface Settings {
+  version: number;
+  preset: Preset;
   visibleLines: 1 | 2 | 3;
   textScale: number;
   align: Align;
-  textOpacity: number;
-  backgroundOpacity: number;
-  activeColor: string;
+  /** The next three override the preset; null keeps the preset's own value. */
+  textOpacity: number | null;
+  backgroundOpacity: number | null;
+  activeColor: string | null;
   animations: boolean;
   hidePausedAfterMs: number | null;
   hideNoLyricsAfterMs: number | null;

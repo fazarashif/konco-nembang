@@ -6,12 +6,10 @@ import { positionAt, type PlaybackAnchor } from "../lib/syncClock";
 interface TrackInfoProps {
   track: NowPlaying;
   anchor: PlaybackAnchor;
-  /** Status line such as "Searching for lyrics…". */
-  note?: string;
 }
 
 /** Title + artist + position, shown when there are no lyrics to display. */
-export function TrackInfo({ track, anchor, note }: TrackInfoProps) {
+export function TrackInfo({ track, anchor }: TrackInfoProps) {
   const [now, setNow] = useState(() => performance.now());
 
   // Tick once per second only while playing.
@@ -24,20 +22,17 @@ export function TrackInfo({ track, anchor, note }: TrackInfoProps) {
 
   const raw = positionAt(anchor, now);
   const position = track.durationMs > 0 ? Math.min(raw, track.durationMs) : raw;
-  const status = anchor.playing ? "▶" : "⏸";
-  const time = track.durationMs > 0
-    ? `${formatTime(position)} / ${formatTime(track.durationMs)}`
-    : formatTime(position);
+  const time =
+    track.durationMs > 0 ? `${formatTime(position)} / ${formatTime(track.durationMs)}` : formatTime(position);
 
   return (
     <div className="lyrics">
-      <p key={track.title} className="line active">
-        {track.title || "(untitled)"}
+      <p key={track.title} className="line active enter">
+        <span>{track.title || "(untitled)"}</span>
       </p>
       <p className="line dim">
-        {[track.artist, `${status} ${time}`].filter(Boolean).join("  ·  ")}
+        <span>{[track.artist, time].filter(Boolean).join("  ·  ")}</span>
       </p>
-      {note && <p className="line dim">{note}</p>}
     </div>
   );
 }

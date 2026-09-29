@@ -1,3 +1,11 @@
+/* Konco Nembang overlay, design direction 1a "Jernih" (docs/design/src/styles/overlay.css).
+ * Requires src/styles/kn-tokens.css. Presets are chosen with data-kn-preset on .frame and
+ * settings override individual tokens inline (OverlayApp styleVars).
+ *
+ * Window scaling: OverlayApp sets --kn-win-k = clamp(0.6, innerHeight / 170, 3), so resizing
+ * the overlay in edit mode still scales the text.
+ */
+
 html,
 body,
 #root {
@@ -6,157 +14,244 @@ body,
   background: transparent;
   overflow: hidden;
   user-select: none;
-  font-family: "Segoe UI", Inter, system-ui, sans-serif;
+  font-family: var(--kn-font-lyric);
 }
 
-/* Appearance settings arrive as --kn-* custom properties set on .frame (OverlayApp). */
 .frame {
+  --k: calc(var(--kn-scale) * var(--kn-win-k, 1));
+  position: relative;
   box-sizing: border-box;
   height: 100%;
   display: flex;
   flex-direction: column;
-  align-items: var(--kn-align, center);
   justify-content: center;
-  gap: 4px;
-  padding: 0 8px;
-  border: 2px dashed transparent;
-  border-radius: 12px;
-  /* Text sizes below scale with the overlay window (cqh/cqw units), so resizing it in
-     edit mode is how the user makes lyrics bigger or smaller. */
-  container-type: size;
-  transition:
-    opacity 200ms,
-    background-color 150ms,
-    border-color 150ms;
+  align-items: stretch;
+  gap: 6px;
+  padding: var(--kn-overlay-pad-y) var(--kn-overlay-pad-x);
+  text-align: var(--kn-text-align);
+  opacity: var(--kn-text-opacity);
+  transition: opacity var(--kn-dur-base) var(--kn-ease-out);
 }
 
-.frame.edit {
-  border-color: rgba(255, 255, 255, 0.7);
-  background: rgba(0, 0, 0, 0.35);
-  cursor: move;
+.frame.paused {
+  opacity: calc(var(--kn-text-opacity) * var(--kn-pause-opacity));
 }
 
 .frame.hidden {
   opacity: 0;
-  transition: opacity 600ms;
 }
 
-.badge {
-  align-self: center;
-  max-width: 95%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 12px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.6);
-  padding: 2px 8px;
-  border-radius: 6px;
+/* The "Background" setting adds the Pill backdrop to any preset. */
+.frame.with-bg {
+  --kn-pill-active: rgba(12, 14, 18, var(--kn-bg-opacity));
+  --kn-pill-dim: rgba(12, 14, 18, calc(var(--kn-bg-opacity) * 0.8));
+  --kn-pill-pad-active: 2px 16px 4px;
+  --kn-pill-pad-dim: 2px 12px 3px;
+  --kn-pill-radius: 12px;
 }
 
-/* Lyrics must not swallow the drag gesture in edit mode. */
 .lyrics {
-  box-sizing: border-box;
   display: flex;
   flex-direction: column;
-  align-items: var(--kn-align, center);
-  gap: 2px;
-  width: 100%;
+  gap: var(--kn-line-gap);
   pointer-events: none;
 }
 
-/* Optional dark pill behind the lyrics for busy backgrounds. */
-.frame.with-bg .lyrics {
-  width: auto;
-  max-width: 100%;
-  padding: 0.35em 1em;
-  border-radius: 14px;
-  background: rgba(8, 8, 12, var(--kn-bg-opacity, 0));
+.lyrics.enter {
+  animation: kn-stack-in var(--kn-dur-line) var(--kn-ease-out);
 }
 
+/* The <p> is a block row; the inner <span> carries text, outline and optional pill,
+   so pills hug each wrapped line (box-decoration-break: clone). */
 .line {
   margin: 0;
-  max-width: 100%;
-  min-height: 1.2em;
-  text-align: var(--kn-text-align, center);
-  color: #fff;
-  /* Outline so the text stays readable on both bright and dark backgrounds. */
-  text-shadow:
-    0 0 2px #000,
-    0 0 4px #000,
-    1px 1px 0 #000,
-    -1px -1px 0 #000;
+  padding: 3px 0;
 }
 
-/* At the default 900x170 window and 100% scale: 34px. Width also caps it so narrow
-   overlays still fit. */
+.line > span {
+  paint-order: stroke fill;
+  -webkit-box-decoration-break: clone;
+  box-decoration-break: clone;
+  text-shadow: var(--kn-text-shadow);
+  border-radius: var(--kn-pill-radius);
+}
+
 .active {
-  font-size: calc(clamp(14px, min(20cqh, 6cqw), 120px) * var(--kn-scale, 1));
-  font-weight: 700;
-  line-height: 1.15;
-  color: var(--kn-active-color, #fff);
-  opacity: var(--kn-text-opacity, 1);
-  /* Long lines wrap onto a second line instead of being cut off. */
-  display: -webkit-box;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  overflow: hidden;
   text-wrap: balance;
-  animation: line-enter 250ms ease-out;
 }
 
-/* At the default window: 18px. Context lines stay on one line. */
+.active > span {
+  font-size: calc(var(--kn-active-size) * var(--k));
+  font-weight: var(--kn-active-weight);
+  line-height: var(--kn-active-lh);
+  color: var(--kn-active-color);
+  -webkit-text-stroke: var(--kn-active-stroke) var(--kn-stroke-color);
+  background: var(--kn-pill-active);
+  padding: var(--kn-pill-pad-active);
+}
+
+.active.enter {
+  animation: kn-fade-in var(--kn-dur-line) var(--kn-ease-out);
+}
+
+/* Long-line rule, step 1 (LyricsView adds .long when the line wraps). Step 2 is the
+   natural wrap to at most two balanced lines. Never truncated. */
+.active.long > span {
+  font-size: max(var(--kn-long-min), calc(var(--kn-active-size) * var(--kn-long-shrink) * var(--k)));
+}
+
 .dim {
-  font-size: calc(clamp(10px, min(10.5cqh, 3.2cqw), 64px) * var(--kn-scale, 1));
-  opacity: calc(0.55 * var(--kn-text-opacity, 1));
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
 }
 
-@keyframes line-enter {
-  from {
-    opacity: 0;
-    transform: translateY(8px);
-  }
+.dim > span {
+  font-size: calc(var(--kn-dim-size) * var(--k));
+  font-weight: var(--kn-dim-weight);
+  line-height: 1.3;
+  color: var(--kn-dim-color);
+  -webkit-text-stroke: var(--kn-dim-stroke) var(--kn-stroke-color);
+  background: var(--kn-pill-dim);
+  padding: var(--kn-pill-pad-dim);
+}
+
+/* Small solid chips: "Paused", "≈ Approximate timing", status notes, toast. */
+.kn-chip-row {
+  display: flex;
+  justify-content: var(--kn-align);
+  gap: 6px;
+  pointer-events: none;
+}
+
+.kn-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  font: var(--kn-fw-semibold) var(--kn-chip-size) / 1 var(--kn-font-ui);
+  color: var(--kn-chip-fg);
+  background: var(--kn-chip-bg);
+  padding: 5px 10px;
+  border-radius: var(--kn-radius-pill);
+  max-width: 100%;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Karaoke line progress: one CSS animation per line, transform only. */
+.kn-progress {
+  display: var(--kn-progress-display);
+  justify-content: var(--kn-align);
+  padding: 1px 0 3px;
+}
+
+.kn-progress > div {
+  width: 240px;
+  height: 4px;
+  border-radius: 2px;
+  overflow: hidden;
+  background: rgba(0, 0, 0, 0.55);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, 0.35);
+}
+
+.kn-progress-fill {
+  height: 100%;
+  background: var(--kn-accent);
+  transform-origin: left center;
+  animation: kn-progress var(--kn-progress-ms) linear var(--kn-progress-delay) both;
+  animation-play-state: var(--kn-progress-state);
+}
+
+/* Edit mode */
+.frame.edit {
+  outline: 2px solid var(--kn-edit-frame);
+  outline-offset: -2px;
+  box-shadow: inset 0 0 0 3px rgba(0, 0, 0, 0.5);
+  background: rgba(12, 14, 18, 0.32);
+  border-radius: var(--kn-radius-xs);
+  cursor: move;
+  opacity: 1;
+}
+
+.kn-handle {
+  position: absolute;
+  width: 10px;
+  height: 10px;
+  background: #fff;
+  border: 1px solid #111;
+  box-sizing: border-box;
+  pointer-events: none;
+}
+
+.kn-handle.tl { top: -1px; left: -1px; }
+.kn-handle.tr { top: -1px; right: -1px; }
+.kn-handle.bl { bottom: -1px; left: -1px; }
+.kn-handle.br { bottom: -1px; right: -1px; }
+
+.badge {
+  position: absolute;
+  left: 12px;
+  top: 8px;
+  right: 12px;
+  display: flex;
+  gap: 6px;
+  font: var(--kn-fw-medium) 12px / 1 var(--kn-font-ui);
+  color: #f2f3f5;
+}
+
+.badge > span {
+  background: rgba(12, 14, 18, 0.9);
+  padding: 6px 9px;
+  border-radius: var(--kn-radius-sm);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.badge > span:first-child {
+  font-weight: var(--kn-fw-semibold);
+  color: var(--kn-brass-400);
+  flex-shrink: 0;
 }
 
 .toast {
   position: fixed;
-  top: 6px;
+  top: 8px;
   left: 50%;
   transform: translateX(-50%);
   max-width: 90%;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  font-size: 13px;
-  color: #fff;
-  background: rgba(0, 0, 0, 0.75);
-  padding: 3px 12px;
-  border-radius: 999px;
   pointer-events: none;
-  animation: toast-in 150ms ease-out;
+  animation: kn-fade-in var(--kn-dur-base) var(--kn-ease-out);
 }
 
-@keyframes toast-in {
-  from {
-    opacity: 0;
-  }
+@keyframes kn-stack-in {
+  from { transform: translateY(var(--kn-line-shift)); }
 }
 
-.no-anim .active,
-.no-anim ~ .toast {
-  animation: none;
+@keyframes kn-fade-in {
+  from { opacity: 0; }
+}
+
+@keyframes kn-progress {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
 }
 
 .no-anim,
-.no-anim.hidden {
-  transition: none;
+.no-anim * {
+  animation: none !important;
+  transition: none !important;
+}
+
+/* Without animation the bar cannot move, so drop it rather than show a stale value. */
+.no-anim .kn-progress {
+  display: none;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .active,
+  .lyrics.enter,
+  .active.enter,
   .toast {
     animation: none;
   }

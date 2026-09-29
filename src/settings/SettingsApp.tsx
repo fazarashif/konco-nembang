@@ -1,5 +1,5 @@
 import { getVersion } from "@tauri-apps/api/app";
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState, type ReactNode } from "react";
 import {
   adjustTrackOffset,
   openSearch,
@@ -8,8 +8,10 @@ import {
   type Settings,
   type Shortcuts,
 } from "../lib/ipc";
+import { PRESET_DEFAULTS, PRESET_OPTIONS } from "../lib/presets";
 import { useLyrics } from "../lib/useLyrics";
 import { useSettings } from "../lib/useSettings";
+import { LogoMark } from "../ui/LogoMark";
 import { Row, Section, Segmented, ShortcutInput, Slider, Toggle } from "./controls";
 
 const percent = (v: number) => `${Math.round(v * 100)}%`;
@@ -70,12 +72,16 @@ export function SettingsApp() {
   const set = <K extends keyof Settings>(key: K, value: Settings[K]) => commit({ ...draft, [key]: value });
   const setShortcut = (key: keyof Shortcuts, value: string) =>
     commit({ ...draft, shortcuts: { ...draft.shortcuts, [key]: value } });
+  const presetDefaults = PRESET_DEFAULTS[draft.preset];
 
   return (
     <main className="settings">
-      <header>
-        <h1>Konco Nembang</h1>
-        <p>Settings apply instantly.</p>
+      <header className="app-header">
+        <LogoMark />
+        <div>
+          <h1>Konco Nembang</h1>
+          <p>Settings apply instantly.</p>
+        </div>
       </header>
 
       {error && <div className="banner error">{error}</div>}
@@ -86,6 +92,16 @@ export function SettingsApp() {
       ))}
 
       <Section title="Appearance">
+        <Row label="Style" hint={PRESET_OPTIONS.find((p) => p.value === draft.preset)?.hint}>
+          <Segmented
+            value={draft.preset}
+            options={PRESET_OPTIONS}
+            // A new style starts clean; overrides from the previous one would hide its look.
+            onChange={(v) =>
+              commit({ ...draft, preset: v, textOpacity: null, backgroundOpacity: null, activeColor: null })
+            }
+          />
+        </Row>
         <Row label="Lines shown">
           <Segmented
             value={draft.visibleLines}
@@ -118,33 +134,39 @@ export function SettingsApp() {
             onChange={(v) => set("align", v)}
           />
         </Row>
-        <Row label="Text opacity">
-          <Slider
-            value={draft.textOpacity}
-            min={0.2}
-            max={1}
-            step={0.05}
-            format={percent}
-            onChange={(v) => set("textOpacity", v)}
-          />
+        <Row label="Text opacity" hint={overrideHint(draft.textOpacity)}>
+          <WithReset show={draft.textOpacity !== null} onReset={() => set("textOpacity", null)}>
+            <Slider
+              value={draft.textOpacity ?? presetDefaults.textOpacity}
+              min={0.2}
+              max={1}
+              step={0.05}
+              format={percent}
+              onChange={(v) => set("textOpacity", v)}
+            />
+          </WithReset>
         </Row>
-        <Row label="Background" hint="Dark backdrop for busy screens">
-          <Slider
-            value={draft.backgroundOpacity}
-            min={0}
-            max={0.9}
-            step={0.05}
-            format={(v) => (v === 0 ? "Off" : percent(v))}
-            onChange={(v) => set("backgroundOpacity", v)}
-          />
+        <Row label="Background" hint={overrideHint(draft.backgroundOpacity, "Dark backdrop for busy screens")}>
+          <WithReset show={draft.backgroundOpacity !== null} onReset={() => set("backgroundOpacity", null)}>
+            <Slider
+              value={draft.backgroundOpacity ?? presetDefaults.backgroundOpacity}
+              min={0}
+              max={0.9}
+              step={0.05}
+              format={(v) => (v === 0 ? "Off" : percent(v))}
+              onChange={(v) => set("backgroundOpacity", v)}
+            />
+          </WithReset>
         </Row>
-        <Row label="Active line color">
-          <input
-            type="color"
-            className="color"
-            value={draft.activeColor.length === 4 ? expandHex(draft.activeColor) : draft.activeColor}
-            onChange={(e) => set("activeColor", e.target.value)}
-          />
+        <Row label="Active line color" hint={overrideHint(draft.activeColor)}>
+          <WithReset show={draft.activeColor !== null} onReset={() => set("activeColor", null)}>
+            <input
+              type="color"
+              className="color"
+              value={expandHex(draft.activeColor ?? presetDefaults.activeColor)}
+              onChange={(e) => set("activeColor", e.target.value)}
+            />
+          </WithReset>
         </Row>
         <Row label="Animations">
           <Toggle checked={draft.animations} onChange={(v) => set("animations", v)} />
@@ -153,7 +175,11 @@ export function SettingsApp() {
 
       <Section title="Behavior">
         <Row label="Hide when paused" hint={hideHint(draft.hidePausedAfterMs)}>
-          <DelayToggle value={draft.hidePausedAfterMs} fallbackMs={3000} onChange={(v) => set("hidePausedAfterMs", v)} />
+          <DelayToggle
+            value={draft.hidePausedAfterMs}
+            fallbackMs={10000}
+            onChange={(v) => set("hidePausedAfterMs", v)}
+          />
         </Row>
         <Row label="Hide when no lyrics" hint={hideHint(draft.hideNoLyricsAfterMs)}>
           <DelayToggle
@@ -253,8 +279,29 @@ export function SettingsApp() {
   );
 }
 
-function expandHex(short: string): string {
-  return "#" + [...short.slice(1)].map((c) => c + c).join("");
+/** `<input type="color">` only accepts #rrggbb. */
+function expandHex(color: string): string {
+  if (color.length !== 4) return color.toLowerCase();
+  return ("#" + [...color.slice(1)].map((c) => c + c).join("")).toLowerCase();
+}
+
+function overrideHint(value: unknown, base?: string): string {
+  const source = value === null ? "From the style" : "Custom";
+  return base ? `${base}. ${source}.` : source;
+}
+
+/** A control plus a "Use style" link that drops the override. */
+function WithReset({ show, onReset, children }: { show: boolean; onReset: () => void; children: ReactNode }) {
+  return (
+    <div className="with-reset">
+      {show && (
+        <button type="button" className="reset-override" onClick={onReset}>
+          Use style
+        </button>
+      )}
+      {children}
+    </div>
+  );
 }
 
 function hideHint(ms: number | null): string {

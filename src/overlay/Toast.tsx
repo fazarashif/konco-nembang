@@ -23,7 +23,7 @@ export function Toast() {
 
   if (!toast) return null;
   return (
-    <div key={toast.id} className="toast">
+    <div key={toast.id} className="toast kn-chip" role="status">
       {toast.message}
     </div>
   );

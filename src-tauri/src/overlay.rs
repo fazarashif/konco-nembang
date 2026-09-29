@@ -62,6 +62,14 @@ pub fn overlay_window<R: Runtime>(app: &AppHandle<R>) -> Option<WebviewWindow<R>
     app.get_webview_window(OVERLAY_LABEL)
 }
 
+pub fn is_editing<R: Runtime>(app: &AppHandle<R>) -> bool {
+    app.state::<OverlayState>().edit_mode.load(Ordering::SeqCst)
+}
+
+pub fn is_visible<R: Runtime>(app: &AppHandle<R>) -> bool {
+    overlay_window(app).is_some_and(|w| w.is_visible().unwrap_or(false))
+}
+
 fn geometry_path<R: Runtime>(app: &AppHandle<R>) -> Option<PathBuf> {
     app.path()
         .app_data_dir()
@@ -137,19 +145,19 @@ pub fn set_edit_mode<R: Runtime>(app: &AppHandle<R>, edit: bool) {
         save_geometry(app);
     }
     let _ = app.emit(EVENT_EDIT_MODE, edit);
+    crate::tray::refresh(app);
 }
 
 /// On quit: keep a placement the user was still adjusting. A placement that was never
 /// touched is not saved, so the default keeps following the primary monitor.
 pub fn save_if_editing<R: Runtime>(app: &AppHandle<R>) {
-    if app.state::<OverlayState>().edit_mode.load(Ordering::SeqCst) {
+    if is_editing(app) {
         save_geometry(app);
     }
 }
 
 pub fn toggle_edit_mode<R: Runtime>(app: &AppHandle<R>) {
-    let edit = app.state::<OverlayState>().edit_mode.load(Ordering::SeqCst);
-    set_edit_mode(app, !edit);
+    set_edit_mode(app, !is_editing(app));
 }
 
 pub fn toggle_visible<R: Runtime>(app: &AppHandle<R>) {
@@ -162,6 +170,7 @@ pub fn toggle_visible<R: Runtime>(app: &AppHandle<R>) {
         let _ = window.show();
         apply_overlay_exstyle(&window);
     }
+    crate::tray::refresh(app);
 }
 
 /// Place the overlay at the bottom-center of the primary monitor.

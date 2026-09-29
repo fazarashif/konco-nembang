@@ -23,7 +23,7 @@ describe("autoHideDelay", () => {
   });
 
   it("hides after the pause delay", () => {
-    expect(autoHideDelay({ ...playingWithLyrics, playing: false }, DEFAULT_AUTO_HIDE)).toBe(3000);
+    expect(autoHideDelay({ ...playingWithLyrics, playing: false }, DEFAULT_AUTO_HIDE)).toBe(10000);
   });
 
   it.each(["notFound", "instrumental", "error"] as const)("hides when lyrics are %s", (status) => {
@@ -37,7 +37,7 @@ describe("autoHideDelay", () => {
 
   it("uses the shorter delay when paused without lyrics", () => {
     const c = { ...playingWithLyrics, playing: false, lyricsStatus: "notFound" as const };
-    expect(autoHideDelay(c, DEFAULT_AUTO_HIDE)).toBe(3000);
+    expect(autoHideDelay(c, DEFAULT_AUTO_HIDE)).toBe(6000);
   });
 
   it("respects disabled rules", () => {

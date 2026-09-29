@@ -62,14 +62,16 @@ body,
 }
 
 .query input:focus-visible {
-  outline: 2px solid var(--accent);
+  outline: 2px solid var(--kn-focus);
   outline-offset: 1px;
 }
 
-button.primary {
-  background: var(--accent);
-  border-color: var(--accent);
+button.primary,
+button.primary:hover:not(:disabled) {
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
   color: var(--accent-fg);
+  font-weight: var(--kn-fw-semibold);
 }
 
 button.link {
@@ -119,11 +121,11 @@ button.link {
 }
 
 .result:hover {
-  background: var(--control);
+  background: var(--kn-bg-hover);
 }
 
 .result.selected {
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  background: var(--kn-bg-selected);
 }
 
 .result-title {
@@ -161,15 +163,15 @@ button.link {
 }
 
 .diff.close {
-  color: #2f9e5b;
+  color: var(--kn-ok-fg);
 }
 
 .diff.near {
-  color: #c98a12;
+  color: var(--accent);
 }
 
 .diff.far {
-  color: #d04545;
+  color: var(--kn-danger-fg);
 }
 
 .empty {

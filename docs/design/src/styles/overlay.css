@@ -1,0 +1,105 @@
+/* Konco Nembang overlay, reference stylesheet for direction 1a.
+ * Drop-in replacement for src/overlay/overlay.css. Class names match the current
+ * components (.frame, .lyrics, .line, .active, .dim, .badge, .toast) plus a few new ones
+ * (.kn-chip, .kn-dots, .kn-progress, .kn-handle, .kn-status). Requires kn-tokens.css.
+ *
+ * Window scaling: OverlayApp sets --kn-win-k = clamp(0.6, innerHeight / 170, 3) on resize,
+ * so resizing the overlay in Mode Edit still scales the text like today.
+ */
+
+html, body, #root {
+  margin: 0; height: 100%; background: transparent; overflow: hidden; user-select: none;
+  font-family: var(--kn-font-lyric);
+}
+
+.frame {
+  --k: calc(var(--kn-scale) * var(--kn-win-k, 1));
+  box-sizing: border-box; height: 100%;
+  display: flex; flex-direction: column; justify-content: center; align-items: stretch;
+  padding: var(--kn-overlay-pad-y) var(--kn-overlay-pad-x);
+  text-align: var(--kn-text-align);
+  opacity: var(--kn-text-opacity);
+  transition: opacity var(--kn-dur-base) var(--kn-ease-out);
+}
+.frame.paused { opacity: calc(var(--kn-text-opacity) * var(--kn-pause-opacity)); }
+.frame.hidden { opacity: 0; }
+
+.lyrics { display: flex; flex-direction: column; gap: var(--kn-line-gap); pointer-events: none; }
+.lyrics.enter { animation: kn-stack-in var(--kn-dur-line) var(--kn-ease-out); }
+
+/* The <p> is a block row; the inner <span> carries text, outline and optional pill,
+   so pills hug each wrapped line (box-decoration-break: clone). */
+.line { margin: 0; padding: 3px 0; }
+.line > span {
+  paint-order: stroke fill;
+  -webkit-box-decoration-break: clone; box-decoration-break: clone;
+  text-shadow: var(--kn-text-shadow);
+  border-radius: var(--kn-pill-radius);
+}
+.active { text-wrap: balance; }
+.active > span {
+  font-size: calc(var(--kn-active-size) * var(--k));
+  font-weight: var(--kn-active-weight);
+  line-height: var(--kn-active-lh);
+  color: var(--kn-active-color);
+  -webkit-text-stroke: var(--kn-active-stroke) var(--kn-stroke-color);
+  background: var(--kn-pill-active);
+  padding: var(--kn-pill-pad-active);
+}
+.active.enter { animation: kn-fade-in var(--kn-dur-line) var(--kn-ease-out); }
+/* Long-line rule, step 1: set by LyricsView when the measured width exceeds the frame. */
+.active.long > span { font-size: max(var(--kn-long-min), calc(var(--kn-active-size) * var(--kn-long-shrink) * var(--k))); }
+/* Step 2: still too wide, wrap to max 2 balanced lines. Never truncated. */
+
+.dim { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.dim > span {
+  font-size: calc(var(--kn-dim-size) * var(--k));
+  font-weight: var(--kn-dim-weight);
+  line-height: 1.3;
+  color: var(--kn-dim-color);
+  -webkit-text-stroke: var(--kn-dim-stroke) var(--kn-stroke-color);
+  background: var(--kn-pill-dim);
+  padding: var(--kn-pill-pad-dim);
+}
+
+/* Small solid chip used for "≈ Waktu perkiraan", "Dijeda", status notes. */
+.kn-chip-row { display: flex; justify-content: var(--kn-align); }
+.kn-chip {
+  display: inline-flex; align-items: center; gap: 7px;
+  font: var(--kn-fw-semibold) var(--kn-chip-size)/1 var(--kn-font-ui);
+  color: var(--kn-chip-fg); background: var(--kn-chip-bg);
+  padding: 5px 10px; border-radius: var(--kn-radius-pill);
+  max-width: 100%; white-space: nowrap; overflow: hidden; text-overflow: ellipsis;
+}
+.kn-chip .time { font-variant-numeric: tabular-nums; font-weight: var(--kn-fw-medium); }
+
+/* Intro / instrumental countdown: 3 dots, filled over the last 3 s. */
+.kn-dots { display: inline-flex; align-items: center; gap: 9px; }
+.kn-dots i { width: 9px; height: 9px; border-radius: 50%; background: var(--kn-dot-off); box-shadow: 0 0 0 2px rgba(0,0,0,0.55); }
+.kn-dots i.on { background: var(--kn-dot-on); }
+
+/* Karaoke line progress: transform only. */
+.kn-progress { display: var(--kn-progress-display); justify-content: var(--kn-align); padding: 1px 0 3px; }
+.kn-progress > div { width: 240px; height: 4px; border-radius: 2px; overflow: hidden; background: rgba(0,0,0,0.55); box-shadow: 0 0 0 1px rgba(0,0,0,0.35); }
+.kn-progress > div > div { height: 100%; background: var(--kn-accent); transform-origin: left center; transform: scaleX(var(--p, 0)); }
+
+/* Mode Edit */
+.frame.edit {
+  outline: 2px solid var(--kn-edit-frame); outline-offset: -2px;
+  box-shadow: inset 0 0 0 3px rgba(0,0,0,0.5);
+  background: rgba(12, 14, 18, 0.32); border-radius: var(--kn-radius-xs);
+  cursor: move; opacity: 1;
+}
+.kn-handle { position: absolute; width: 10px; height: 10px; background: #fff; border: 1px solid #111; box-sizing: border-box; }
+.badge {
+  position: absolute; left: 0; top: 0; display: flex; gap: 6px; max-width: 100%;
+  font: var(--kn-fw-medium) 12px/1 var(--kn-font-ui); color: #F2F3F5;
+}
+.badge > span { background: rgba(12,14,18,0.9); padding: 6px 9px; border-radius: var(--kn-radius-sm); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.badge > span:first-child { font-weight: var(--kn-fw-semibold); flex-shrink: 0; }
+
+@keyframes kn-stack-in { from { transform: translateY(var(--kn-line-shift)); } }
+@keyframes kn-fade-in { from { opacity: 0; } }
+
+.no-anim, .no-anim * { animation: none !important; transition: none !important; }
+@media (prefers-reduced-motion: reduce) { .lyrics.enter, .active.enter { animation: none; } }

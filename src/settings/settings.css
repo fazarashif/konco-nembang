@@ -1,42 +1,27 @@
-/* Functional styling until the design tokens land (docs/design-brief.md). */
+/* Settings and Search windows. Colors come from the design system's window themes
+   ([data-kn-theme] in kn-tokens.css, set by lib/theme.ts); these aliases keep the rules short. */
 :root {
-  --bg: #f3f3f5;
-  --surface: #ffffff;
-  --fg: #1d1d1f;
-  --muted: #6b6b73;
-  --border: #dcdce2;
-  --accent: #6d4aff;
-  --accent-fg: #ffffff;
-  --control: #ececf0;
-  --warning-bg: #fff4d6;
-  --warning-fg: #7a5200;
-  --error-bg: #fde2e2;
-  --error-fg: #8a1c1c;
-  color-scheme: light dark;
-}
-
-@media (prefers-color-scheme: dark) {
-  :root {
-    --bg: #1b1b1f;
-    --surface: #242429;
-    --fg: #f2f2f5;
-    --muted: #a3a3ad;
-    --border: #36363d;
-    --accent: #9b84ff;
-    --accent-fg: #15151a;
-    --control: #313138;
-    --warning-bg: #3d3113;
-    --warning-fg: #ffd98a;
-    --error-bg: #3f1d1d;
-    --error-fg: #ffb4b4;
-  }
+  --bg: var(--kn-bg-window);
+  --surface: var(--kn-bg-surface);
+  --fg: var(--kn-fg);
+  --muted: var(--kn-fg-muted);
+  --border: var(--kn-border);
+  /* Accent as text/outline (Brass 600 on light, 400 on dark) and as a fill with ink on top. */
+  --accent: var(--kn-accent-ui);
+  --accent-fill: var(--kn-accent-fill);
+  --accent-fg: var(--kn-on-accent);
+  --control: var(--kn-bg-subtle);
+  --warning-bg: color-mix(in srgb, var(--kn-brass-400) 22%, var(--kn-bg-surface));
+  --warning-fg: var(--kn-fg);
+  --error-bg: color-mix(in srgb, var(--kn-danger) 18%, var(--kn-bg-surface));
+  --error-fg: var(--kn-danger-fg);
 }
 
 body {
   margin: 0;
   background: var(--bg);
   color: var(--fg);
-  font: 14px/1.4 "Segoe UI", Inter, system-ui, sans-serif;
+  font: var(--kn-fs-body) / var(--kn-lh-body) var(--kn-font-ui);
 }
 
 .settings {
@@ -49,14 +34,27 @@ body {
   color: var(--muted);
 }
 
-header h1 {
-  margin: 0;
-  font-size: 20px;
+.app-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 16px;
 }
 
-header p {
-  margin: 2px 0 16px;
+.app-header h1 {
+  margin: 0;
+  font-size: 20px;
+  font-weight: var(--kn-fw-bold);
+}
+
+.app-header p {
+  margin: 0;
   color: var(--muted);
+}
+
+.logo-mark {
+  flex-shrink: 0;
+  color: var(--fg);
 }
 
 .banner {
@@ -135,17 +133,47 @@ select {
   cursor: pointer;
 }
 
+button:hover:not(:disabled),
+select:hover {
+  background: var(--kn-bg-hover);
+}
+
+button:active:not(:disabled) {
+  background: var(--kn-bg-pressed);
+}
+
 button:disabled {
-  opacity: 0.45;
+  color: var(--kn-fg-disabled);
   cursor: default;
 }
 
 button:focus-visible,
 select:focus-visible,
 input:focus-visible + .toggle-track,
-input[type="range"]:focus-visible {
-  outline: 2px solid var(--accent);
+input[type="range"]:focus-visible,
+input[type="color"]:focus-visible {
+  outline: 2px solid var(--kn-focus);
   outline-offset: 2px;
+}
+
+/* Small "back to the preset's value" action next to an overridden control. */
+button.reset-override {
+  border: none;
+  background: none;
+  padding: 0 4px;
+  font-size: var(--kn-fs-caption);
+  color: var(--accent);
+  text-decoration: underline;
+}
+
+button.reset-override:hover:not(:disabled) {
+  background: none;
+}
+
+.with-reset {
+  display: flex;
+  align-items: center;
+  gap: 8px;
 }
 
 .slider {
@@ -156,7 +184,7 @@ input[type="range"]:focus-visible {
 
 .slider input {
   width: 160px;
-  accent-color: var(--accent);
+  accent-color: var(--accent-fill);
 }
 
 .slider output {
@@ -180,9 +208,11 @@ input[type="range"]:focus-visible {
   border-radius: 5px;
 }
 
-.segmented button.selected {
-  background: var(--accent);
+.segmented button.selected,
+.segmented button.selected:hover {
+  background: var(--accent-fill);
   color: var(--accent-fg);
+  font-weight: var(--kn-fw-semibold);
 }
 
 .toggle {
@@ -226,8 +256,8 @@ input[type="range"]:focus-visible {
 }
 
 .toggle input:checked + .toggle-track {
-  background: var(--accent);
-  border-color: var(--accent);
+  background: var(--accent-fill);
+  border-color: var(--accent-fill);
 }
 
 .toggle input:checked + .toggle-track::after {
@@ -253,7 +283,8 @@ input[type="range"]:focus-visible {
 
 .shortcut {
   min-width: 150px;
-  font-variant-numeric: tabular-nums;
+  font-family: var(--kn-font-mono);
+  font-size: 13px;
 }
 
 .shortcut.recording {

@@ -1,0 +1,217 @@
+/* Konco Nembang design tokens  v1.0
+ * Direction 1a "Jernih". All values are plain CSS custom properties (--kn-*).
+ * Scopes:
+ *   :root                         base scale + brand palette
+ *   [data-kn-theme="light|dark"]  Settings / dialogs / onboarding (follow Windows theme)
+ *   [data-kn-preset="…"]          overlay presets, set on .frame
+ * Settings values override preset tokens inline on .frame (see OverlayApp styleVars).
+ * Fonts are bundled from @fontsource-variable (OFL); CJK falls back to fonts that ship with Windows.
+ */
+
+
+:root {
+  /* Brand palette */
+  --kn-ink-950: #0B0E12;
+  --kn-ink-900: #13171D;
+  --kn-ink-800: #1C2129;
+  --kn-ink-700: #2A303A;
+  --kn-ink-500: #5B626E;
+  --kn-ink-300: #A4AAB4;
+  --kn-paper-50: #FAF9F7;
+  --kn-paper-100: #F3F2EE;
+  --kn-paper-200: #E6E4DF;
+  --kn-paper-300: #D3D0C9;
+  /* Kuningan (bonang brass). 400 on dark grounds, 600 on light grounds (4.5:1 on white). */
+  --kn-brass-300: oklch(0.90 0.10 86);
+  --kn-brass-400: oklch(0.84 0.14 82);
+  --kn-brass-500: oklch(0.74 0.14 76);
+  --kn-brass-600: oklch(0.56 0.11 72);
+  --kn-brass-700: oklch(0.46 0.09 70);
+  --kn-ok: oklch(0.70 0.13 155);
+  --kn-danger: oklch(0.62 0.19 27);
+
+  /* Type */
+  --kn-font-ui: "Atkinson Hyperlegible Next Variable", "Segoe UI Variable Text", "Segoe UI", "Yu Gothic UI", "Malgun Gothic", "Microsoft YaHei UI", sans-serif;
+  --kn-font-lyric: "Atkinson Hyperlegible Next Variable", "Yu Gothic UI", "Malgun Gothic", "Microsoft YaHei UI", sans-serif;
+  --kn-font-mono: "Atkinson Hyperlegible Mono Variable", "Cascadia Mono", Consolas, monospace;
+  --kn-fs-caption: 12px;
+  --kn-fs-body: 14px;
+  --kn-fs-body-lg: 15px;
+  --kn-fs-subtitle: 18px;
+  --kn-fs-title: 24px;
+  --kn-fw-regular: 400;
+  --kn-fw-medium: 500;
+  --kn-fw-semibold: 600;
+  --kn-fw-bold: 700;
+  --kn-fw-heavy: 800;
+  --kn-lh-tight: 1.2;
+  --kn-lh-body: 1.45;
+
+  /* Spacing (4 px grid) */
+  --kn-space-1: 4px;
+  --kn-space-2: 8px;
+  --kn-space-3: 12px;
+  --kn-space-4: 16px;
+  --kn-space-5: 20px;
+  --kn-space-6: 24px;
+  --kn-space-8: 32px;
+  --kn-space-10: 40px;
+
+  /* Radius */
+  --kn-radius-xs: 4px;
+  --kn-radius-sm: 6px;
+  --kn-radius-md: 8px;   /* Windows 11 controls & cards */
+  --kn-radius-lg: 12px;  /* dialogs */
+  --kn-radius-pill: 999px;
+
+  /* Motion. Only opacity and transform are animated. */
+  --kn-dur-fast: 120ms;
+  --kn-dur-base: 180ms;
+  --kn-dur-line: 220ms;
+  --kn-dur-max: 250ms;
+  --kn-ease-out: cubic-bezier(0.2, 0.7, 0.2, 1);
+  --kn-ease-inout: cubic-bezier(0.4, 0, 0.2, 1);
+  --kn-line-shift: 8px;
+
+  /* Overlay geometry */
+  --kn-overlay-w: 900px;
+  --kn-overlay-h: 170px;
+  --kn-overlay-min-w: 480px;
+  --kn-overlay-min-h: 96px;
+  --kn-overlay-pad-x: 28px;
+  --kn-overlay-pad-y: 12px;
+  --kn-long-shrink: 0.85;   /* first step for long active lines */
+  --kn-long-min: 28px;      /* never shrink the active line below this */
+  --kn-pause-opacity: 0.45;
+  --kn-edit-frame: var(--kn-brass-400);
+  --kn-chip-bg: rgba(10, 12, 16, 0.80);
+  --kn-chip-fg: #EDEFF2;
+  --kn-chip-size: 13px;
+}
+
+/* ---------- Overlay presets ----------
+ * Every preset sets the same token list; Settings overrides any of them.
+ * Text colours are applied at full strength. Hierarchy comes from size and tone,
+ * because lowering opacity also weakens the outline that makes text readable.
+ */
+.frame,
+[data-kn-preset="minimal"] {
+  --kn-align: center;
+  --kn-text-align: center;
+  --kn-scale: 1;
+  --kn-text-opacity: 1;
+  --kn-bg-opacity: 0;
+  --kn-line-gap: 4px;
+  --kn-active-size: 34px;
+  --kn-active-weight: 700;
+  --kn-active-lh: 1.25;
+  --kn-active-color: #FFFFFF;
+  --kn-active-stroke: 5px;          /* 5 px stroke painted under the fill = 2.5 px visible outline */
+  --kn-dim-size: 20px;
+  --kn-dim-weight: 700;
+  --kn-dim-color: #D3D8DF;
+  --kn-dim-stroke: 4px;
+  --kn-stroke-color: rgba(6, 8, 12, 0.92);
+  --kn-text-shadow: 0 2px 3px rgba(0, 0, 0, 0.45);
+  --kn-pill-active: transparent;
+  --kn-pill-dim: transparent;
+  --kn-pill-pad-active: 0;
+  --kn-pill-pad-dim: 0;
+  --kn-pill-radius: 0;
+  --kn-accent: var(--kn-brass-400);
+  --kn-progress-display: none;
+  --kn-dot-on: #FFFFFF;
+  --kn-dot-off: rgba(255, 255, 255, 0.30);
+  --kn-dots-bg: transparent;
+  --kn-dots-pad: 0;
+}
+
+[data-kn-preset="pill"] {
+  --kn-line-gap: 6px;
+  --kn-active-size: 30px;
+  --kn-active-lh: 1.5;
+  --kn-active-stroke: 0px;
+  --kn-dim-size: 18px;
+  --kn-dim-weight: 600;
+  --kn-dim-color: #DEE2E8;
+  --kn-dim-stroke: 0px;
+  --kn-text-shadow: none;
+  --kn-bg-opacity: 0.74;
+  --kn-pill-active: rgba(12, 14, 18, var(--kn-bg-opacity));
+  --kn-pill-dim: rgba(12, 14, 18, calc(var(--kn-bg-opacity) * 0.8));
+  --kn-pill-pad-active: 2px 16px 4px;
+  --kn-pill-pad-dim: 2px 12px 3px;
+  --kn-pill-radius: 12px;
+  --kn-dots-bg: rgba(12, 14, 18, var(--kn-bg-opacity));
+  --kn-dots-pad: 8px 14px;
+}
+
+[data-kn-preset="karaoke"] {
+  --kn-active-weight: 800;
+  --kn-active-color: var(--kn-brass-400);
+  --kn-dim-color: #F1EEE6;
+  --kn-stroke-color: rgba(22, 14, 4, 0.92);
+  --kn-progress-display: flex;
+  --kn-dot-on: var(--kn-brass-400);
+}
+
+[data-kn-preset="subtle"] {
+  --kn-text-opacity: 0.8;
+  --kn-active-size: 24px;
+  --kn-active-weight: 600;
+  --kn-active-stroke: 4px;
+  --kn-dim-size: 15px;
+  --kn-dim-weight: 600;
+  --kn-dim-color: #C9CED6;
+  --kn-dim-stroke: 3.5px;
+  --kn-text-shadow: none;
+}
+
+/* ---------- Window themes (Settings, Cari Lirik, Onboarding) ---------- */
+[data-kn-theme="light"] {
+  color-scheme: light;
+  --kn-bg-window: var(--kn-paper-100);
+  --kn-bg-surface: #FFFFFF;
+  --kn-bg-subtle: var(--kn-paper-50);
+  --kn-bg-hover: rgba(19, 23, 29, 0.05);
+  --kn-bg-pressed: rgba(19, 23, 29, 0.09);
+  --kn-bg-selected: oklch(0.95 0.04 84);
+  --kn-border: rgba(19, 23, 29, 0.12);
+  --kn-border-strong: rgba(19, 23, 29, 0.24);
+  --kn-fg: var(--kn-ink-900);
+  --kn-fg-muted: #535A65;
+  --kn-fg-disabled: rgba(19, 23, 29, 0.38);
+  --kn-accent-ui: var(--kn-brass-600);
+  --kn-accent-fill: var(--kn-brass-400);
+  --kn-on-accent: var(--kn-ink-950);
+  --kn-focus: var(--kn-ink-900);
+  --kn-danger-fg: oklch(0.50 0.17 27);
+  --kn-ok-fg: oklch(0.48 0.11 155);
+  --kn-shadow-dialog: 0 8px 28px rgba(19, 23, 29, 0.16), 0 0 0 1px rgba(19, 23, 29, 0.08);
+}
+
+[data-kn-theme="dark"] {
+  color-scheme: dark;
+  --kn-bg-window: var(--kn-ink-900);
+  --kn-bg-surface: var(--kn-ink-800);
+  --kn-bg-subtle: #171B22;
+  --kn-bg-hover: rgba(255, 255, 255, 0.06);
+  --kn-bg-pressed: rgba(255, 255, 255, 0.10);
+  --kn-bg-selected: oklch(0.32 0.04 80);
+  --kn-border: rgba(255, 255, 255, 0.09);
+  --kn-border-strong: rgba(255, 255, 255, 0.20);
+  --kn-fg: #EEF0F3;
+  --kn-fg-muted: #A4AAB4;
+  --kn-fg-disabled: rgba(238, 240, 243, 0.36);
+  --kn-accent-ui: var(--kn-brass-400);
+  --kn-accent-fill: var(--kn-brass-400);
+  --kn-on-accent: var(--kn-ink-950);
+  --kn-focus: #FFFFFF;
+  --kn-danger-fg: oklch(0.74 0.14 27);
+  --kn-ok-fg: oklch(0.78 0.12 155);
+  --kn-shadow-dialog: 0 12px 36px rgba(0, 0, 0, 0.5), 0 0 0 1px rgba(255, 255, 255, 0.07);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root { --kn-dur-fast: 0ms; --kn-dur-base: 0ms; --kn-dur-line: 0ms; --kn-line-shift: 0px; }
+}

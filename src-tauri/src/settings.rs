@@ -22,6 +22,16 @@ pub enum Align {
     Right,
 }
 
+/// Overlay style presets from the design system (`data-kn-preset` on the overlay frame).
+#[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
+#[serde(rename_all = "lowercase")]
+pub enum Preset {
+    Minimal,
+    Pill,
+    Karaoke,
+    Subtle,
+}
+
 /// Which players the overlay follows.
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(rename_all = "lowercase")]
@@ -58,20 +68,32 @@ impl Default for Shortcuts {
     }
 }
 
+/// Current settings file format. Bump together with a step in `Settings::migrated`.
+const SETTINGS_VERSION: u32 = 2;
+
+/// Files written before the version field existed.
+fn legacy_version() -> u32 {
+    1
+}
+
 /// Missing fields fall back to defaults, so older settings files keep loading.
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(default, rename_all = "camelCase")]
 pub struct Settings {
+    #[serde(default = "legacy_version")]
+    pub version: u32,
     // Appearance
+    pub preset: Preset,
     pub visible_lines: u8,
     /// Multiplier on top of the size the overlay window gives the text.
     pub text_scale: f32,
     pub align: Align,
-    pub text_opacity: f32,
-    /// Opacity of the dark pill behind the lyrics; 0 = no background.
-    pub background_opacity: f32,
+    /// The fields below override the preset; `None` keeps the preset's own value.
+    pub text_opacity: Option<f32>,
+    /// Opacity of the dark backdrop behind the lyrics; 0 = no background.
+    pub background_opacity: Option<f32>,
     /// CSS hex color of the active line.
-    pub active_color: String,
+    pub active_color: Option<String>,
     pub animations: bool,
     // Behavior
     pub hide_paused_after_ms: Option<u32>,
@@ -90,14 +112,17 @@ pub struct Settings {
 impl Default for Settings {
     fn default() -> Self {
         Self {
+            version: SETTINGS_VERSION,
+            preset: Preset::Minimal,
             visible_lines: 3,
             text_scale: 1.0,
             align: Align::Center,
-            text_opacity: 1.0,
-            background_opacity: 0.0,
-            active_color: "#ffffff".into(),
+            text_opacity: None,
+            background_opacity: None,
+            active_color: None,
             animations: true,
-            hide_paused_after_ms: Some(3000),
+            // The overlay dims right away when paused and hides after this.
+            hide_paused_after_ms: Some(10_000),
             hide_no_lyrics_after_ms: Some(6000),
             media_source: MediaSourceFilter::Auto,
             global_offset_ms: 0,
@@ -113,17 +138,41 @@ fn is_hex_color(s: &str) -> bool {
     matches!(hex.len(), 3 | 6) && hex.chars().all(|c| c.is_ascii_hexdigit())
 }
 
+fn clamp_opt(v: Option<f32>, min: f32, max: f32) -> Option<f32> {
+    v.filter(|x| x.is_finite()).map(|x| x.clamp(min, max))
+}
+
 impl Settings {
+    /// Bring files from older versions up to date.
+    pub fn migrated(mut self) -> Self {
+        if self.version < 2 {
+            // v1 stored its defaults explicitly, which would now pin every preset to plain
+            // white text without a backdrop. Only values the user actually changed survive.
+            if self.active_color.as_deref().is_some_and(|c| c.eq_ignore_ascii_case("#ffffff")) {
+                self.active_color = None;
+            }
+            if self.text_opacity == Some(1.0) {
+                self.text_opacity = None;
+            }
+            if self.background_opacity == Some(0.0) {
+                self.background_opacity = None;
+            }
+            if self.hide_paused_after_ms == Some(3000) {
+                self.hide_paused_after_ms = Some(10_000);
+            }
+        }
+        self.version = SETTINGS_VERSION;
+        self
+    }
+
     /// Clamp everything into range so a hand-edited or buggy value cannot break the overlay.
     pub fn sanitized(mut self) -> Self {
-        let defaults = Settings::default();
         self.visible_lines = self.visible_lines.clamp(1, 3);
         self.text_scale = if self.text_scale.is_finite() { self.text_scale.clamp(0.5, 2.5) } else { 1.0 };
-        self.text_opacity = if self.text_opacity.is_finite() { self.text_opacity.clamp(0.2, 1.0) } else { 1.0 };
-        self.background_opacity =
-            if self.background_opacity.is_finite() { self.background_opacity.clamp(0.0, 0.9) } else { 0.0 };
-        if !is_hex_color(&self.active_color) {
-            self.active_color = defaults.active_color;
+        self.text_opacity = clamp_opt(self.text_opacity, 0.2, 1.0);
+        self.background_opacity = clamp_opt(self.background_opacity, 0.0, 0.9);
+        if !self.active_color.as_deref().is_none_or(is_hex_color) {
+            self.active_color = None;
         }
         self.hide_paused_after_ms = self.hide_paused_after_ms.map(|ms| ms.min(600_000));
         self.hide_no_lyrics_after_ms = self.hide_no_lyrics_after_ms.map(|ms| ms.min(600_000));
@@ -146,6 +195,7 @@ impl SettingsState {
             .and_then(|p| fs::read_to_string(p).ok())
             .and_then(|data| serde_json::from_str::<Settings>(&data).ok())
             .unwrap_or_default()
+            .migrated()
             .sanitized();
         Self {
             current: Mutex::new(current),
@@ -244,7 +294,42 @@ mod tests {
     #[test]
     fn empty_json_gives_defaults() {
         let s: Settings = serde_json::from_str("{}").unwrap();
-        assert_eq!(s, Settings::default());
+        assert_eq!(s.migrated(), Settings::default());
+    }
+
+    #[test]
+    fn migrates_v1_defaults_to_preset_values() {
+        // The settings.json written by the Tahap 5 build (text size changed to 70%).
+        let v1 = r##"{"visibleLines":3,"textScale":0.7,"align":"center","textOpacity":1.0,
+            "backgroundOpacity":0.0,"activeColor":"#ffffff","animations":true,
+            "hidePausedAfterMs":3000,"hideNoLyricsAfterMs":6000,"mediaSource":"auto",
+            "globalOffsetMs":0,"offsetStepMs":250,"autostart":false}"##;
+        let s = serde_json::from_str::<Settings>(v1).unwrap().migrated();
+        assert_eq!(s.version, SETTINGS_VERSION);
+        assert_eq!(s.preset, Preset::Minimal);
+        assert_eq!(s.text_scale, 0.7);
+        assert_eq!(s.active_color, None);
+        assert_eq!(s.text_opacity, None);
+        assert_eq!(s.background_opacity, None);
+        assert_eq!(s.hide_paused_after_ms, Some(10_000));
+    }
+
+    #[test]
+    fn migration_keeps_values_the_user_changed() {
+        let v1 = r##"{"activeColor":"#F8C153","backgroundOpacity":0.5,"textOpacity":0.8,"hidePausedAfterMs":null}"##;
+        let s = serde_json::from_str::<Settings>(v1).unwrap().migrated();
+        assert_eq!(s.active_color.as_deref(), Some("#F8C153"));
+        assert_eq!(s.background_opacity, Some(0.5));
+        assert_eq!(s.text_opacity, Some(0.8));
+        assert_eq!(s.hide_paused_after_ms, None);
+    }
+
+    #[test]
+    fn current_files_are_not_migrated_again() {
+        let v2 = r##"{"version":2,"activeColor":"#ffffff","hidePausedAfterMs":3000}"##;
+        let s = serde_json::from_str::<Settings>(v2).unwrap().migrated();
+        assert_eq!(s.active_color.as_deref(), Some("#ffffff"));
+        assert_eq!(s.hide_paused_after_ms, Some(3000));
     }
 
     #[test]
@@ -261,9 +346,9 @@ mod tests {
         let s = Settings {
             visible_lines: 9,
             text_scale: f32::NAN,
-            text_opacity: 0.0,
-            background_opacity: 5.0,
-            active_color: "red; background: url(x)".into(),
+            text_opacity: Some(0.0),
+            background_opacity: Some(5.0),
+            active_color: Some("red; background: url(x)".into()),
             global_offset_ms: 999_999,
             offset_step_ms: 0,
             ..Settings::default()
@@ -271,9 +356,9 @@ mod tests {
         .sanitized();
         assert_eq!(s.visible_lines, 3);
         assert_eq!(s.text_scale, 1.0);
-        assert_eq!(s.text_opacity, 0.2);
-        assert_eq!(s.background_opacity, 0.9);
-        assert_eq!(s.active_color, "#ffffff");
+        assert_eq!(s.text_opacity, Some(0.2));
+        assert_eq!(s.background_opacity, Some(0.9));
+        assert_eq!(s.active_color, None);
         assert_eq!(s.global_offset_ms, MAX_OFFSET_MS);
         assert_eq!(s.offset_step_ms, 50);
     }
@@ -290,6 +375,8 @@ mod tests {
     fn serializes_enums_as_lowercase() {
         let json = serde_json::to_value(Settings::default()).unwrap();
         assert_eq!(json["align"], "center");
+        assert_eq!(json["preset"], "minimal");
+        assert_eq!(json["activeColor"], serde_json::Value::Null);
         assert_eq!(json["mediaSource"], "auto");
         assert_eq!(json["shortcuts"]["offsetEarlier"], "Ctrl+Alt+Equal");
     }

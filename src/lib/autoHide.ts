@@ -7,9 +7,9 @@ export interface AutoHideSettings {
   hideNoLyricsAfterMs: number | null;
 }
 
-// Defaults until the settings window (Tahap 5) makes these configurable.
+// Used until settings have loaded; mirrors the backend defaults (settings.rs).
 export const DEFAULT_AUTO_HIDE: AutoHideSettings = {
-  hidePausedAfterMs: 3000,
+  hidePausedAfterMs: 10000,
   hideNoLyricsAfterMs: 6000,
 };
 
