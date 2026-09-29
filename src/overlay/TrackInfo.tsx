@@ -6,10 +6,12 @@ import { positionAt, type PlaybackAnchor } from "../lib/syncClock";
 interface TrackInfoProps {
   track: NowPlaying;
   anchor: PlaybackAnchor;
+  /** Status line such as "Mencari lirik…". */
+  note?: string;
 }
 
-/** Title + artist + position. Stand-in until synced lyrics arrive in Tahap 3. */
-export function TrackInfo({ track, anchor }: TrackInfoProps) {
+/** Title + artist + position, shown when there are no lyrics to display. */
+export function TrackInfo({ track, anchor, note }: TrackInfoProps) {
   const [now, setNow] = useState(() => performance.now());
 
   // Tick once per second only while playing.
@@ -35,6 +37,7 @@ export function TrackInfo({ track, anchor }: TrackInfoProps) {
       <p className="line dim">
         {[track.artist, `${status} ${time}`].filter(Boolean).join("  ·  ")}
       </p>
+      {note && <p className="line dim">{note}</p>}
     </div>
   );
 }

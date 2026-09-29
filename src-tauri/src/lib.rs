@@ -1,3 +1,4 @@
+mod lyrics;
 mod media;
 mod overlay;
 
@@ -48,10 +49,12 @@ pub fn run() {
         .manage(media::MediaState::default())
         .invoke_handler(tauri::generate_handler![
             overlay::get_edit_mode,
-            media::get_now_playing
+            media::get_now_playing,
+            lyrics::get_lyrics
         ])
         .setup(|app| {
             overlay::init(app.handle())?;
+            app.manage(lyrics::LyricsState::new(app.handle()));
             media::spawn_watcher(app.handle().clone());
             Ok(())
         })

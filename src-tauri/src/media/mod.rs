@@ -38,6 +38,17 @@ pub struct NowPlaying {
     pub rate: f64,
 }
 
+impl NowPlaying {
+    /// Same song, ignoring position and play state.
+    pub fn same_track(&self, other: &NowPlaying) -> bool {
+        self.source_app == other.source_app
+            && self.title == other.title
+            && self.artist == other.artist
+            && self.album == other.album
+            && self.duration_ms == other.duration_ms
+    }
+}
+
 /// Minimal view of a media session used to decide which one to follow.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionCandidate {
@@ -115,10 +126,19 @@ fn log_change(snapshot: &Option<NowPlaying>) {
     }
 }
 
-fn publish<R: Runtime>(app: &AppHandle<R>, snapshot: &Option<NowPlaying>) {
+fn publish<R: Runtime>(app: &AppHandle<R>, previous: &Option<NowPlaying>, snapshot: &Option<NowPlaying>) {
     *app.state::<MediaState>().now_playing.lock().unwrap() = snapshot.clone();
     log_change(snapshot);
     let _ = app.emit(EVENT_NOW_PLAYING, snapshot);
+
+    let track_changed = match (previous, snapshot) {
+        (Some(a), Some(b)) => !a.same_track(b),
+        (None, None) => false,
+        _ => true,
+    };
+    if track_changed {
+        crate::lyrics::on_track_changed(app, snapshot.as_ref());
+    }
 }
 
 pub fn spawn_watcher<R: Runtime>(app: AppHandle<R>) {
@@ -152,7 +172,7 @@ pub fn spawn_watcher<R: Runtime>(app: AppHandle<R>) {
                                 false
                             };
                             if !within_grace && snapshot != last {
-                                publish(&app, &snapshot);
+                                publish(&app, &last, &snapshot);
                                 last = snapshot;
                             }
                         }
