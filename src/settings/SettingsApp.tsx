@@ -2,6 +2,7 @@ import { getVersion } from "@tauri-apps/api/app";
 import { useCallback, useEffect, useRef, useState } from "react";
 import {
   adjustTrackOffset,
+  openSearch,
   resetOverlayPosition,
   updateSettings,
   type Settings,
@@ -212,6 +213,11 @@ export function SettingsApp() {
               Reset
             </button>
           </div>
+        </Row>
+        <Row label="Wrong or missing lyrics?" hint="Pick other lyrics or import an .lrc file">
+          <button type="button" onClick={() => openSearch()}>
+            Search lyrics…
+          </button>
         </Row>
       </Section>
 

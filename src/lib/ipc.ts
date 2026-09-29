@@ -108,5 +108,34 @@ export const getSettings = () => invoke<Settings>("get_settings");
 export const updateSettings = (settings: Settings) => invoke<UpdateResult>("update_settings", { settings });
 export const onSettings = (h: (settings: Settings) => void) => subscribe(EVENT_SETTINGS, h);
 
+/** Mirrors `lyrics::SearchResult`. */
+export interface SearchResult {
+  id: number;
+  trackName: string;
+  artistName: string;
+  albumName: string | null;
+  durationSecs: number | null;
+  instrumental: boolean;
+  syncedLyrics: string | null;
+  plainLyrics: string | null;
+}
+
+export interface SearchDefaults {
+  query: string;
+  durationSecs: number | null;
+}
+
+/** Lyrics that can be pinned to a track (not loading/error). */
+export type FinalLyrics = Exclude<Lyrics, { status: "loading" } | { status: "error" }>;
+
+export const openSearch = () => invoke<void>("open_search");
+export const getSearchDefaults = () => invoke<SearchDefaults | null>("get_search_defaults");
+export const searchLyrics = (query: string) => invoke<SearchResult[]>("search_lyrics", { query });
+/** Rejects with a message when nothing is playing. */
+export const applyManualLyrics = (lyrics: FinalLyrics, matched: MatchInfo | null) =>
+  invoke<void>("apply_manual_lyrics", { lyrics, matched });
+/** Forget pinned/cached lyrics for the current track and look them up again. */
+export const refreshLyrics = () => invoke<void>("refresh_lyrics");
+
 export const suspendHotkeys = () => invoke<void>("suspend_hotkeys");
 export const resumeHotkeys = () => invoke<string[]>("resume_hotkeys");

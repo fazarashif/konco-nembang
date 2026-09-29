@@ -10,13 +10,13 @@ import { SyncedLyrics } from "./SyncedLyrics";
 import { Toast } from "./Toast";
 import { TrackInfo } from "./TrackInfo";
 import { useAutoHide } from "./useAutoHide";
-import { useNowPlaying } from "./useNowPlaying";
+import { useNowPlaying } from "../lib/useNowPlaying";
 
 const STATUS_NOTE: Record<LyricsPayload["status"], string | undefined> = {
   loading: "Searching for lyrics…",
   notFound: "No lyrics found",
   instrumental: "♪ Instrumental",
-  error: "Couldn't load lyrics",
+  error: "Couldn't reach LRCLIB, retrying…",
   synced: undefined,
   plain: undefined,
 };

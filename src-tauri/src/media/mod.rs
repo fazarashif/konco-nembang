@@ -53,6 +53,25 @@ impl NowPlaying {
     }
 }
 
+/// Clips this short are ads (YouTube pre-rolls report their own length) or jingles.
+const MIN_TRACK_MS: u64 = 40_000;
+
+/// Ads and other non-songs are treated as "nothing playing": no lyrics lookup, overlay hides.
+pub fn looks_like_ad(np: &NowPlaying) -> bool {
+    let title = np.title.trim().to_lowercase();
+    let artist = np.artist.trim();
+    if matches!(title.as_str(), "advertisement" | "advert" | "ad" | "iklan") {
+        return true;
+    }
+    // Spotify Free reports ads with an empty artist, and "Spotify" as the title when idle.
+    if np.source_app.to_ascii_lowercase().contains("spotify")
+        && (artist.is_empty() || title == "spotify" || artist.eq_ignore_ascii_case("spotify"))
+    {
+        return true;
+    }
+    np.duration_ms > 0 && np.duration_ms < MIN_TRACK_MS
+}
+
 /// Minimal view of a media session used to decide which one to follow.
 #[derive(Clone, Debug, PartialEq)]
 pub struct SessionCandidate {
@@ -139,6 +158,10 @@ pub fn get_now_playing(state: State<'_, MediaState>) -> Option<NowPlaying> {
     state.now_playing.lock().unwrap().clone()
 }
 
+pub fn current<R: Runtime>(app: &AppHandle<R>) -> Option<NowPlaying> {
+    app.state::<MediaState>().now_playing.lock().unwrap().clone()
+}
+
 #[cfg(windows)]
 fn create_source() -> Result<Box<dyn MediaSource>, String> {
     gsmtc::GsmtcSource::new().map(|s| Box::new(s) as Box<dyn MediaSource>)
@@ -212,6 +235,7 @@ pub fn spawn_watcher<R: Runtime>(app: AppHandle<R>) {
                     let filter = filter_from_u8(app.state::<MediaState>().filter.load(Ordering::SeqCst));
                     match source.snapshot(previous_app.as_deref(), filter) {
                         Ok(snapshot) => {
+                            let snapshot = snapshot.filter(|np| !looks_like_ad(np));
                             let within_grace = if snapshot.is_none() && last.is_some() {
                                 missing_since.get_or_insert_with(Instant::now).elapsed()
                                     < MISSING_GRACE
@@ -247,6 +271,38 @@ mod tests {
             app: app.into(),
             playing,
         }
+    }
+
+    fn np(app: &str, title: &str, artist: &str, duration_ms: u64) -> NowPlaying {
+        NowPlaying {
+            source_app: app.into(),
+            title: title.into(),
+            artist: artist.into(),
+            album: String::new(),
+            duration_ms,
+            position_ms: 0,
+            position_updated_at_ms: 0,
+            playing: true,
+            rate: 1.0,
+        }
+    }
+
+    #[test]
+    fn detects_ads() {
+        assert!(looks_like_ad(&np("Spotify.exe", "Advertisement", "", 30_000)));
+        assert!(looks_like_ad(&np("Spotify.exe", "Try Premium free", "", 29_000)));
+        assert!(looks_like_ad(&np("Spotify.exe", "Spotify", "", 0)));
+        assert!(looks_like_ad(&np("Chrome._crx_x", "Advertisement", "", 0)));
+        // YouTube pre-roll: the video's title, but the ad's short length.
+        assert!(looks_like_ad(&np("OperaSoftware.OperaGX", "Cundamani (Official Music Video)", "Denny Caknan", 15_000)));
+    }
+
+    #[test]
+    fn keeps_real_songs() {
+        assert!(!looks_like_ad(&np("Spotify.exe", "So Far Away", "Avenged Sevenfold", 326_826)));
+        assert!(!looks_like_ad(&np("Chrome._crx_x", "Adore You", "Harry Styles", 207_000)));
+        // Unknown duration while the player is still loading metadata.
+        assert!(!looks_like_ad(&np("Chrome._crx_x", "the cure", "Olivia Rodrigo", 0)));
     }
 
     #[test]

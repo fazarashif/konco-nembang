@@ -15,6 +15,7 @@ export default defineConfig(() => ({
       input: {
         overlay: "overlay.html",
         settings: "settings.html",
+        search: "search.html",
       },
     },
   },

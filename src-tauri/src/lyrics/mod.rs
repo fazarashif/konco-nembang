@@ -24,6 +24,12 @@ pub const EVENT_LYRICS: &str = "lyrics://changed";
 
 /// Skipping through a playlist should not fire a request per track.
 const DEBOUNCE: Duration = Duration::from_millis(400);
+/// When LRCLIB is unreachable (offline, timeout), try again while the track keeps playing.
+const RETRY_DELAYS: [Duration; 3] = [
+    Duration::from_secs(5),
+    Duration::from_secs(15),
+    Duration::from_secs(45),
+];
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(tag = "status", rename_all = "camelCase")]
@@ -65,6 +71,7 @@ struct Inner {
     current: Option<LyricsPayload>,
     /// Offset/cache key of the current track.
     current_key: Option<String>,
+    current_query: Option<TrackQuery>,
 }
 
 pub struct LyricsState {
@@ -90,6 +97,7 @@ impl LyricsState {
                 generation: 0,
                 current: None,
                 current_key: None,
+                current_query: None,
             }),
             client,
             cache: data_dir.as_ref().map(|dir| Arc::new(Cache::new(dir.join("lyrics")))),
@@ -176,6 +184,7 @@ pub fn on_track_changed<R: Runtime>(app: &AppHandle<R>, track: Option<&NowPlayin
         let mut inner = state.inner.lock().unwrap();
         inner.generation += 1;
         inner.current_key = key.clone();
+        inner.current_query = query.clone();
         inner.generation
     };
 
@@ -204,27 +213,148 @@ pub fn on_track_changed<R: Runtime>(app: &AppHandle<R>, track: Option<&NowPlayin
     let app = app.clone();
 
     tauri::async_runtime::spawn(async move {
+        let is_current = || app.state::<LyricsState>().inner.lock().unwrap().generation == generation;
         tokio::time::sleep(DEBOUNCE).await;
-        if app.state::<LyricsState>().inner.lock().unwrap().generation != generation {
-            return;
+
+        let mut retries = RETRY_DELAYS.iter();
+        loop {
+            if !is_current() {
+                return;
+            }
+            let (lyrics, matched) = resolve(&client, cache.as_deref(), &query).await;
+            if cfg!(debug_assertions) {
+                eprintln!("[lyrics] {query:?} -> {} {matched:?}", status_name(&lyrics));
+            }
+            let failed = matches!(lyrics, Lyrics::Error { .. });
+            // Keep an offset the user adjusted while the lookup was running.
+            let mut answer = payload(lyrics, matched);
+            answer.offset_ms = app.state::<LyricsState>().offsets.get(&key);
+            publish(&app, generation, Some(answer));
+
+            match (failed, retries.next()) {
+                (true, Some(delay)) => tokio::time::sleep(*delay).await,
+                _ => return,
+            }
         }
-        let (lyrics, matched) = resolve(&client, cache.as_deref(), &query).await;
-        if cfg!(debug_assertions) {
-            let status = match &lyrics {
-                Lyrics::Synced { .. } => "synced",
-                Lyrics::Plain { .. } => "plain",
-                Lyrics::Instrumental => "instrumental",
-                Lyrics::NotFound => "not found",
-                Lyrics::Error { .. } => "error",
-                Lyrics::Loading => "loading",
-            };
-            eprintln!("[lyrics] {query:?} -> {status} {matched:?} offset={offset_ms}ms");
-        }
-        // Keep an offset the user adjusted while the lookup was running.
-        let mut answer = payload(lyrics, matched);
-        answer.offset_ms = app.state::<LyricsState>().offsets.get(&key);
-        publish(&app, generation, Some(answer));
     });
+}
+
+fn status_name(lyrics: &Lyrics) -> &'static str {
+    match lyrics {
+        Lyrics::Synced { .. } => "synced",
+        Lyrics::Plain { .. } => "plain",
+        Lyrics::Instrumental => "instrumental",
+        Lyrics::NotFound => "not found",
+        Lyrics::Error { .. } => "error",
+        Lyrics::Loading => "loading",
+    }
+}
+
+/// One LRCLIB search hit, with lyrics included so the search window can preview it.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchResult {
+    pub id: i64,
+    pub track_name: String,
+    pub artist_name: String,
+    pub album_name: Option<String>,
+    pub duration_secs: Option<f64>,
+    pub instrumental: bool,
+    pub synced_lyrics: Option<String>,
+    pub plain_lyrics: Option<String>,
+}
+
+impl From<lrclib::Record> for SearchResult {
+    fn from(r: lrclib::Record) -> Self {
+        Self {
+            id: r.id,
+            track_name: r.track_name,
+            artist_name: r.artist_name,
+            album_name: r.album_name,
+            duration_secs: r.duration,
+            instrumental: r.instrumental,
+            synced_lyrics: r.synced_lyrics.filter(|s| !s.trim().is_empty()),
+            plain_lyrics: r.plain_lyrics.filter(|s| !s.trim().is_empty()),
+        }
+    }
+}
+
+/// Starting point for the search window, derived from the playing track.
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct SearchDefaults {
+    pub query: String,
+    pub duration_secs: Option<u32>,
+}
+
+#[tauri::command]
+pub fn get_search_defaults(state: State<'_, LyricsState>) -> Option<SearchDefaults> {
+    let inner = state.inner.lock().unwrap();
+    let q = inner.current_query.as_ref()?;
+    Some(SearchDefaults {
+        query: format!("{} {}", q.artist, q.search_title).trim().to_string(),
+        duration_secs: q.duration_secs,
+    })
+}
+
+#[tauri::command]
+pub async fn search_lyrics(state: State<'_, LyricsState>, query: String) -> Result<Vec<SearchResult>, String> {
+    let query = query.trim().to_string();
+    if query.is_empty() {
+        return Ok(Vec::new());
+    }
+    let client = state.client.clone().ok_or("HTTP client unavailable")?;
+    let records = client.search_text(&query).await?;
+    Ok(records.into_iter().map(SearchResult::from).collect())
+}
+
+/// Pin lyrics chosen by the user (a search hit or an imported .lrc file) to the current
+/// track. Stored in the cache, so it sticks the next time the track plays.
+#[tauri::command]
+pub fn apply_manual_lyrics<R: Runtime>(
+    app: AppHandle<R>,
+    lyrics: Lyrics,
+    matched: Option<MatchInfo>,
+) -> Result<(), String> {
+    if matches!(lyrics, Lyrics::Loading | Lyrics::Error { .. }) {
+        return Err("Only real lyrics can be applied".into());
+    }
+    let state = app.state::<LyricsState>();
+    let mut inner = state.inner.lock().unwrap();
+    let (Some(query), Some(current)) = (inner.current_query.clone(), inner.current.clone()) else {
+        return Err("Nothing is playing".into());
+    };
+    // Cancels any automatic lookup still running for this track.
+    inner.generation += 1;
+    if let Some(cache) = &state.cache {
+        cache.put(&query, &lyrics, &matched);
+    }
+    let payload = LyricsPayload {
+        lyrics,
+        matched,
+        ..current
+    };
+    inner.current = Some(payload.clone());
+    drop(inner);
+
+    let _ = app.emit(EVENT_LYRICS, Some(payload));
+    overlay::toast(&app, "Lyrics updated for this track");
+    Ok(())
+}
+
+/// Drop the cached or pinned lyrics for the current track and look them up again.
+#[tauri::command]
+pub fn refresh_lyrics<R: Runtime>(app: AppHandle<R>) -> Result<(), String> {
+    let state = app.state::<LyricsState>();
+    let query = state.inner.lock().unwrap().current_query.clone();
+    let (Some(query), Some(track)) = (query, crate::media::current(&app)) else {
+        return Err("Nothing is playing".into());
+    };
+    if let Some(cache) = &state.cache {
+        cache.remove(&query);
+    }
+    on_track_changed(&app, Some(&track));
+    Ok(())
 }
 
 /// Settings window counterpart of the offset hotkeys.

@@ -89,6 +89,11 @@ impl Cache {
             eprintln!("[lyrics] cache write failed: {err}");
         }
     }
+
+    /// Forget a track so the next lookup goes back to LRCLIB.
+    pub fn remove(&self, q: &TrackQuery) {
+        let _ = fs::remove_file(self.path(q));
+    }
 }
 
 #[cfg(test)]
@@ -118,6 +123,17 @@ mod tests {
         let lyrics = Lyrics::Synced { lrc: "[00:01.00]a".into() };
         cache.put(&q, &lyrics, &None);
         assert_eq!(cache.get(&q).map(|(l, _)| l), Some(lyrics));
+        let _ = fs::remove_dir_all(&cache.dir);
+    }
+
+    #[test]
+    fn remove_forgets_entry() {
+        let cache = temp_cache("remove");
+        let q = build_query("Song", "Artist", "Album", 100_000);
+        cache.put(&q, &Lyrics::Instrumental, &None);
+        assert!(cache.get(&q).is_some());
+        cache.remove(&q);
+        assert!(cache.get(&q).is_none());
         let _ = fs::remove_dir_all(&cache.dir);
     }
 

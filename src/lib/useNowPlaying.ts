@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
-import { getNowPlaying, onNowPlaying, type NowPlaying } from "../lib/ipc";
-import { anchorFromNowPlaying } from "../lib/nowPlaying";
-import type { PlaybackAnchor } from "../lib/syncClock";
+import { getNowPlaying, onNowPlaying, type NowPlaying } from "./ipc";
+import { anchorFromNowPlaying } from "./nowPlaying";
+import type { PlaybackAnchor } from "./syncClock";
 
 export interface NowPlayingState {
   track: NowPlaying | null;

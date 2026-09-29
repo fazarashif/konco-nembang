@@ -26,6 +26,7 @@ pub struct Record {
     pub id: i64,
     pub track_name: String,
     pub artist_name: String,
+    pub album_name: Option<String>,
     pub duration: Option<f64>,
     #[serde(default)]
     pub instrumental: bool,
@@ -100,7 +101,12 @@ impl Client {
             return Ok(by_fields);
         }
         let text = format!("{} {}", q.artist, q.search_title);
-        self.search_with(&[("q", text.trim())]).await
+        self.search_text(text.trim()).await
+    }
+
+    /// Free-text search, as typed by the user in the search window.
+    pub async fn search_text(&self, text: &str) -> Result<Vec<Record>, String> {
+        self.search_with(&[("q", text)]).await
     }
 
     async fn search_with(&self, params: &[(&str, &str)]) -> Result<Vec<Record>, String> {
@@ -169,6 +175,7 @@ mod tests {
             id,
             track_name: track.into(),
             artist_name: artist.into(),
+            album_name: None,
             duration: Some(dur),
             instrumental: false,
             plain_lyrics: Some("la la".into()),

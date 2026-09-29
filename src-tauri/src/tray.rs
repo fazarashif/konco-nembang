@@ -14,6 +14,7 @@ const MAX_TOOLTIP_CHARS: usize = 120;
 pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
     let toggle_visible = MenuItem::with_id(app, "toggle-visible", "Show / hide overlay", true, None::<&str>)?;
     let toggle_edit = MenuItem::with_id(app, "toggle-edit", "Move / resize overlay", true, None::<&str>)?;
+    let search = MenuItem::with_id(app, "search", "Search lyrics…", true, None::<&str>)?;
     let settings = MenuItem::with_id(app, "settings", "Settings…", true, None::<&str>)?;
     let quit = MenuItem::with_id(app, "quit", "Quit Konco Nembang", true, None::<&str>)?;
     let menu = Menu::with_items(
@@ -22,6 +23,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
             &toggle_visible,
             &toggle_edit,
             &PredefinedMenuItem::separator(app)?,
+            &search,
             &settings,
             &PredefinedMenuItem::separator(app)?,
             &quit,
@@ -35,6 +37,7 @@ pub fn init<R: Runtime>(app: &AppHandle<R>) -> tauri::Result<()> {
         .on_menu_event(|app, event| match event.id().as_ref() {
             "toggle-visible" => overlay::toggle_visible(app),
             "toggle-edit" => overlay::toggle_edit_mode(app),
+            "search" => crate::show_search(app),
             "settings" => crate::show_settings(app),
             "quit" => app.exit(0),
             _ => {}

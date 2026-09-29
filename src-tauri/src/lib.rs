@@ -8,13 +8,27 @@ mod tray;
 use tauri::{AppHandle, Manager, RunEvent, Runtime, WindowEvent};
 
 const SETTINGS_LABEL: &str = "settings";
+const SEARCH_LABEL: &str = "search";
 
-pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) {
-    if let Some(window) = app.get_webview_window(SETTINGS_LABEL) {
+fn show_window<R: Runtime>(app: &AppHandle<R>, label: &str) {
+    if let Some(window) = app.get_webview_window(label) {
         let _ = window.show();
         let _ = window.unminimize();
         let _ = window.set_focus();
     }
+}
+
+pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) {
+    show_window(app, SETTINGS_LABEL);
+}
+
+pub(crate) fn show_search<R: Runtime>(app: &AppHandle<R>) {
+    show_window(app, SEARCH_LABEL);
+}
+
+#[tauri::command]
+fn open_search<R: Runtime>(app: AppHandle<R>) {
+    show_search(&app);
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -42,6 +56,11 @@ pub fn run() {
             media::get_now_playing,
             lyrics::get_lyrics,
             lyrics::adjust_track_offset,
+            lyrics::get_search_defaults,
+            lyrics::search_lyrics,
+            lyrics::apply_manual_lyrics,
+            lyrics::refresh_lyrics,
+            open_search,
             settings::get_settings,
             settings::update_settings,
             hotkeys::suspend_hotkeys,
@@ -60,8 +79,8 @@ pub fn run() {
             Ok(())
         })
         .on_window_event(|window, event| {
-            // Closing settings only hides it; the app keeps running in the tray.
-            if window.label() == SETTINGS_LABEL {
+            // Closing a tool window only hides it; the app keeps running in the tray.
+            if window.label() == SETTINGS_LABEL || window.label() == SEARCH_LABEL {
                 if let WindowEvent::CloseRequested { api, .. } = event {
                     api.prevent_close();
                     let _ = window.hide();

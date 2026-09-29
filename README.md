@@ -2,7 +2,7 @@
 
 Overlay lirik transparan untuk Windows. Aplikasi mendeteksi lagu yang sedang diputar (Spotify, YouTube Music, YouTube di browser), mengambil lirik ter-sinkron dari [LRCLIB](https://lrclib.net), lalu menampilkannya di atas layar: tembus klik dan tidak mencuri fokus, jadi aman dipakai saat kerja atau main game (mode borderless).
 
-> Status: Tahap 5 (pengaturan, tray, hotkey, offset per lagu). Tampilan final menunggu hasil desain (`docs/design-brief.md`).
+> Status: Tahap 6 (iklan, offline, cari lirik manual). Tampilan final menunggu hasil desain (`docs/design-brief.md`).
 
 ## Prasyarat
 - Windows 10/11 (WebView2 sudah bawaan Windows 11)
@@ -25,7 +25,11 @@ cd src-tauri && cargo test
 ```
 
 ## Cara pakai
-App berjalan di **system tray**. Klik kiri ikon tray untuk membuka Settings; klik kanan untuk menu (show/hide overlay, move/resize, settings, quit).
+App berjalan di **system tray**. Klik kiri ikon tray untuk membuka Settings; klik kanan untuk menu (show/hide overlay, move/resize, search lyrics, settings, quit).
+
+Lirik salah atau tidak ketemu? Buka **Search lyrics…** dari tray (atau Settings → Sync): cari di LRCLIB, pilih hasil, atau drag & drop file `.lrc`/`.txt`. Pilihan manual disimpan untuk lagu itu; **Reset to automatic** mengembalikannya ke pencarian otomatis.
+
+Iklan (Spotify Free, pre-roll YouTube) dan klip di bawah 40 detik diabaikan. Saat offline, lirik yang sudah pernah dimuat tetap tampil dari cache, dan pencarian baru dicoba ulang otomatis.
 
 Shortcut default (bisa diubah di Settings → Shortcuts):
 
@@ -49,10 +53,12 @@ Semua di `%APPDATA%\com.konconembang.desktop\`:
 
 ## Struktur
 ```
-overlay.html, settings.html   entry halaman untuk tiap window
+overlay.html, settings.html,
+search.html                   entry halaman untuk tiap window
 src/lib/                      logika bersama: parser LRC, sync clock, IPC, auto-hide, shortcut
 src/overlay/                  UI overlay (React)
 src/settings/                 UI Settings (React)
+src/search/                   UI Search Lyrics (React)
 src-tauri/src/overlay.rs      window overlay (click-through, no-activate, lock/edit, posisi)
 src-tauri/src/media/          deteksi lagu via Windows GSMTC
 src-tauri/src/lyrics/         LRCLIB, normalisasi judul, cache, offset per lagu
