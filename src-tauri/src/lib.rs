@@ -13,11 +13,17 @@ const SEARCH_LABEL: &str = "search";
 
 /// Tool windows are created on demand and destroyed on close: each open webview costs
 /// tens of MB, and most of the time only the overlay is needed.
+///
+/// Callers include sync commands, tray/menu handlers, hotkey handlers and the single-instance
+/// callback. On Windows, building a webview window from any of those deadlocks the main
+/// thread (blank window, frozen overlay and hotkeys), so the build runs on its own thread.
 fn show_window<R: Runtime>(
     app: &AppHandle<R>,
-    label: &str,
-    build: impl FnOnce(WebviewWindowBuilder<'_, R, AppHandle<R>>) -> WebviewWindowBuilder<'_, R, AppHandle<R>>,
-    page: &str,
+    label: &'static str,
+    build: impl FnOnce(WebviewWindowBuilder<'_, R, AppHandle<R>>) -> WebviewWindowBuilder<'_, R, AppHandle<R>>
+        + Send
+        + 'static,
+    page: &'static str,
 ) {
     if let Some(window) = app.get_webview_window(label) {
         let _ = window.unminimize();
@@ -25,12 +31,15 @@ fn show_window<R: Runtime>(
         let _ = window.set_focus();
         return;
     }
-    let builder = WebviewWindowBuilder::new(app, label, WebviewUrl::App(page.into()))
-        .resizable(true)
-        .center();
-    if let Err(err) = build(builder).build() {
-        eprintln!("[window] could not open {label}: {err}");
-    }
+    let app = app.clone();
+    std::thread::spawn(move || {
+        let builder = WebviewWindowBuilder::new(&app, label, WebviewUrl::App(page.into()))
+            .resizable(true)
+            .center();
+        if let Err(err) = build(builder).build() {
+            eprintln!("[window] could not open {label}: {err}");
+        }
+    });
 }
 
 pub(crate) fn show_settings<R: Runtime>(app: &AppHandle<R>) {
@@ -57,8 +66,9 @@ pub(crate) fn show_search<R: Runtime>(app: &AppHandle<R>) {
     );
 }
 
+// Async so it runs off the main thread (see `show_window`).
 #[tauri::command]
-fn open_search<R: Runtime>(app: AppHandle<R>) {
+async fn open_search<R: Runtime>(app: AppHandle<R>) {
     show_search(&app);
 }
 
