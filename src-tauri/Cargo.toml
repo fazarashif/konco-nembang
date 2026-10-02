@@ -1,6 +1,6 @@
 [package]
 name = "konco-nembang"
-version = "0.1.0"
+version = "0.1.1"
 description = "Transparent, click-through synced lyrics overlay"
 authors = ["Konco Nembang contributors"]
 edition = "2021"
